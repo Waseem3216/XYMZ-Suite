@@ -1208,6 +1208,7 @@ async function loadBiTaskDrilldown(projectId, projectName) {
     if (!res.ok) throw new Error(data.error || 'Failed to load project tasks');
 
     const tasks = data.tasks || [];
+    const members = data.members || [];
 
     const labels = tasks.map((t) => t.title);
     const daysLeft = tasks.map((t) => {
@@ -1240,8 +1241,7 @@ async function loadBiTaskDrilldown(projectId, projectName) {
               afterBody(c) {
                 const t = tasks[c[0].dataIndex];
                 const member =
-                  boardState.members.find((m) => m.id === t.assigned_to) ||
-                  null;
+                  members.find((m) => m.id === t.assigned_to) || null;
                 return [
                   `Due: ${t.due_date ?? 'N/A'}`,
                   `Priority: ${t.priority}`,
