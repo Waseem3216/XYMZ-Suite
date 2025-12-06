@@ -3,6 +3,7 @@
 
 # Backend dependencies
 backend/node_modules/
+npm-debug.log
 
 # Uploaded files (if these are user uploads / runtime files)
 backend/uploads/
