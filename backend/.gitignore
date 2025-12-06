@@ -1,0 +1,23 @@
+# IDE settings
+.vscode/
+
+# Backend dependencies
+backend/node_modules/
+
+# Uploaded files (if these are user uploads / runtime files)
+backend/uploads/
+
+# Env / secrets
+backend/.env
+.env
+
+# Database files
+backend/taskdesk.db
+backend/taskdesk.db-shm
+backend/taskdesk.db-wal
+
+# Logs
+*.log
+
+# macOS junk (if you're on Mac)
+.DS_Store

@@ -1,0 +1,1564 @@
+/* frontend/css/styles.css */
+/* --------------------------------------------------
+   Fonts (Premium SaaS feel)
+   -------------------------------------------------- */
+   @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap");
+
+   /* --------------------------------------------------
+      Base + Layout
+      -------------------------------------------------- */
+   
+   *,
+   *::before,
+   *::after {
+     box-sizing: border-box;
+   }
+   
+   html,
+   body {
+     margin: 0;
+     padding: 0;
+     height: 100%;
+     font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont,
+       "Segoe UI", sans-serif;
+     background: radial-gradient(circle at top left, #020617 0, #020617 45%, #000 100%);
+     color: #e5e7eb;
+     scroll-behavior: smooth;
+   }
+   
+   /* Premium heading / brand typography */
+   
+   h1,
+   h2,
+   h3,
+   h4,
+   h5,
+   h6,
+   .topbar h1 {
+     font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont,
+       "Segoe UI", sans-serif;
+     letter-spacing: 0.12em;
+     text-transform: uppercase;
+   }
+   
+   /* Slightly tighter for smaller headings */
+   h3,
+   h4,
+   h5,
+   h6 {
+     letter-spacing: 0.08em;
+   }
+   
+   /* Topbar subtitle – high-end label feel */
+   .topbar p {
+     font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont,
+       "Segoe UI", sans-serif;
+     letter-spacing: 0.16em;
+     text-transform: uppercase;
+   }
+   
+   /* Buttons + sidebar labels use premium fonts */
+   
+   .btn {
+     font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont,
+       "Segoe UI", sans-serif;
+     font-weight: 500;
+   }
+   
+   .sidebar-section h2 {
+     font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont,
+       "Segoe UI", sans-serif;
+     letter-spacing: 0.14em;
+     text-transform: uppercase;
+   }
+   
+   .app-shell {
+     display: flex;
+     flex-direction: column;
+     min-height: 100vh;
+   }
+   
+   /* --------------------------------------------------
+      Topbar
+      -------------------------------------------------- */
+   
+   .topbar {
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+     padding: 10px 16px;
+     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+     background: radial-gradient(
+         circle at top left,
+         rgba(56, 189, 248, 0.15),
+         transparent 55%
+       ),
+       linear-gradient(135deg, #020617, #020617, #020617);
+     backdrop-filter: blur(12px);
+     position: sticky;
+     top: 0;
+     z-index: 10;
+     animation: topbar-fade-in 600ms ease-out;
+   }
+   
+   .brand {
+     display: flex;
+     align-items: center;
+     gap: 10px;
+   }
+   
+   /* ================== LOGO ==================
+      Use local XYMZ logo instead of the old orb.
+      Image path: frontend/img/xymz-logo.png
+      ----------------------------------------- */
+  .logo-orb {
+    width: 185px;              /* or whatever width fits your layout */
+    height: 60px;
+    border-radius: 14px;
+    background-image: url("../img/xymz-logo.png"); /* use the new file */
+    background-size: cover;    /* or 'contain' if you want full logo visible */
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: 0 0 28px rgba(56, 189, 248, 0.55);
+  }
+      
+      
+
+   
+   /* (Old .logo-orb::after sheen removed so it doesn't cover the logo) */
+   
+   .topbar h1 {
+     margin: 0;
+     font-size: 1.3rem;
+   }
+   
+   .topbar p {
+     margin: 2px 0 0;
+     font-size: 0.8rem;
+     color: #9ca3af;
+   }
+   
+   .topbar-right {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+   }
+   
+   .user-chip {
+     display: flex;
+     flex-direction: column;
+     align-items: flex-end;
+     font-size: 0.8rem;
+   }
+   
+   .user-chip span:first-child {
+     font-weight: 500;
+   }
+   
+   .user-chip span:last-child {
+     color: #9ca3af;
+     font-size: 0.78rem;
+   }
+   
+   /* --------------------------------------------------
+      Buttons
+      -------------------------------------------------- */
+   
+   .btn {
+     border-radius: 999px;
+     border: 1px solid rgba(148, 163, 184, 0.6);
+     background: rgba(15, 23, 42, 0.98);
+     color: #e5e7eb;
+     padding: 6px 12px;
+     font-size: 0.85rem;
+     cursor: pointer;
+     display: inline-flex;
+     align-items: center;
+     justify-content: center;
+     gap: 4px;
+     transition:
+       background 200ms ease,
+       border-color 200ms ease,
+       box-shadow 220ms ease,
+       transform 160ms ease;
+   }
+   
+   .btn.primary {
+     border-color: rgba(56, 189, 248, 0.9);
+     background: radial-gradient(
+       circle at top left,
+       rgba(56, 189, 248, 0.4),
+       rgba(15, 23, 42, 1)
+     );
+   }
+   
+   .btn.secondary {
+     border-color: rgba(148, 163, 184, 0.7);
+   }
+   
+   /* Danger (delete) style */
+   .btn.danger {
+     border-color: rgba(239, 68, 68, 0.85);
+     background: radial-gradient(
+       circle at top left,
+       rgba(239, 68, 68, 0.35),
+       rgba(15, 23, 42, 1)
+     );
+     color: #fecaca;
+   }
+   
+   .btn.small {
+     font-size: 0.8rem;
+     padding: 4px 10px;
+   }
+   
+   .btn.full-width {
+     width: 100%;
+   }
+   
+   .btn:hover {
+     box-shadow: 0 14px 32px rgba(15, 23, 42, 0.95);
+     transform: translateY(-1px);
+   }
+   
+   .btn:active {
+     transform: translateY(0) scale(0.98);
+   }
+   
+   /* --------------------------------------------------
+      Layout Containers
+      -------------------------------------------------- */
+   
+   .main-layout {
+     flex: 1;
+     display: flex;
+     justify-content: center;
+     padding: 14px;
+   }
+   
+   .card {
+     background: rgba(15, 23, 42, 0.96);
+     border-radius: 14px;
+     border: 1px solid rgba(148, 163, 184, 0.35);
+     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.9);
+     position: relative;
+     overflow: hidden;
+   }
+   
+   /* faint inner frame effect */
+   .card::before {
+     content: "";
+     position: absolute;
+     inset: 8px;
+     border-radius: 12px;
+     border: 1px solid rgba(15, 23, 42, 0.9);
+     pointer-events: none;
+   }
+   
+   /* --------------------------------------------------
+      Auth
+      -------------------------------------------------- */
+   
+   .auth-panel {
+     width: 100%;
+     max-width: 420px;
+     padding: 14px 16px;
+     animation: panel-fade-up 600ms ease-out;
+   }
+   
+   .tabs {
+     display: flex;
+     margin-bottom: 10px;
+     background: rgba(15, 23, 42, 0.9);
+     border-radius: 999px;
+     padding: 3px;
+   }
+   
+   .tab {
+     flex: 1;
+     border: none;
+     border-bottom: 2px solid transparent;
+     background: transparent;
+     color: #9ca3af;
+     padding: 8px 0;
+     cursor: pointer;
+     font-size: 0.9rem;
+     border-radius: 999px;
+     transition:
+       background 200ms ease,
+       color 200ms ease,
+       border-color 200ms ease;
+   }
+   
+   .tab.active {
+     color: #e5e7eb;
+     border-bottom-color: rgba(56, 189, 248, 0.9);
+     background: rgba(15, 23, 42, 0.96);
+   }
+   
+   .auth-form label {
+     display: block;
+     font-size: 0.85rem;
+     margin-bottom: 8px;
+   }
+   
+   .auth-form input {
+     width: 100%;
+     margin-top: 4px;
+     border-radius: 8px;
+     border: 1px solid rgba(148, 163, 184, 0.6);
+     background: rgba(15, 23, 42, 0.98);
+     color: #e5e7eb;
+     padding: 6px 8px;
+     font-size: 0.85rem;
+     transition:
+       border-color 200ms ease,
+       box-shadow 200ms ease,
+       background 200ms ease;
+   }
+   
+   .auth-form input::placeholder {
+     color: rgba(148, 163, 184, 0.8);
+   }
+   
+   .auth-form input:focus {
+     border-color: rgba(56, 189, 248, 0.9);
+     box-shadow: 0 0 0 1px rgba(15, 23, 42, 1), 0 0 30px rgba(56, 189, 248, 0.35);
+     background: rgba(15, 23, 42, 1);
+   }
+   
+   /* Match selects / textarea to inputs */
+   .auth-form select,
+   .auth-form textarea {
+     width: 100%;
+     margin-top: 4px;
+     border-radius: 8px;
+     border: 1px solid rgba(148, 163, 184, 0.6);
+     background: rgba(15, 23, 42, 0.98);
+     color: #e5e7eb;
+     padding: 6px 8px;
+     font-size: 0.85rem;
+     transition:
+       border-color 200ms ease,
+       box-shadow 200ms ease,
+       background 200ms ease;
+   }
+   
+   .auth-form select:focus,
+   .auth-form textarea:focus {
+     border-color: rgba(56, 189, 248, 0.9);
+     box-shadow: 0 0 0 1px rgba(15, 23, 42, 1), 0 0 30px rgba(56, 189, 248, 0.35);
+     background: rgba(15, 23, 42, 1);
+   }
+   
+   /* Admin org fields box */
+   .admin-org-fields {
+     margin-top: 6px;
+     padding: 8px 10px;
+     border-radius: 10px;
+     border: 1px dashed rgba(148, 163, 184, 0.6);
+     background: rgba(15, 23, 42, 0.9);
+   }
+   
+   /* New: auth helper actions row (Forgot password / Reset token) */
+   .auth-actions-row {
+     margin-top: 8px;
+     display: flex;
+     flex-direction: column;
+     gap: 6px;
+   }
+   
+   /* Login footer links (Forgot password / Reset 6-digit token) */
+   .login-links {
+     display: flex;
+     justify-content: space-between;
+     gap: 8px;
+     margin-top: 8px;
+   }
+   
+   .link-button {
+     background: none;
+     border: none;
+     padding: 0;
+     margin: 0;
+     color: #38bdf8;
+     cursor: pointer;
+     font-size: 0.78rem;
+     text-decoration: underline;
+     letter-spacing: 0.04em;
+     text-transform: uppercase;
+   }
+   
+   .link-button:hover {
+     opacity: 0.9;
+   }
+   
+   .status-text {
+     font-size: 0.78rem;
+     color: #9ca3af;
+     margin-top: 6px;
+   }
+   
+   /* Checkbox row styling */
+   .checkbox-row {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+     font-size: 0.8rem;
+     margin: 6px 0;
+   }
+   
+   /* Custom checkbox */
+   .checkbox-row input[type="checkbox"] {
+     width: 16px;
+     height: 16px;
+     border-radius: 4px;
+     border: 1px solid rgba(148, 163, 184, 0.7);
+     background: rgba(15, 23, 42, 0.98);
+     appearance: none;
+     display: inline-block;
+     position: relative;
+     cursor: pointer;
+   }
+   
+   .checkbox-row input[type="checkbox"]:focus {
+     outline: none;
+     box-shadow: 0 0 0 1px rgba(15, 23, 42, 1), 0 0 18px rgba(56, 189, 248, 0.35);
+   }
+   
+   .checkbox-row input[type="checkbox"]:checked {
+     border-color: rgba(56, 189, 248, 0.9);
+     background: radial-gradient(
+       circle at top left,
+       rgba(56, 189, 248, 0.3),
+       rgba(15, 23, 42, 1)
+     );
+   }
+   
+   .checkbox-row input[type="checkbox"]:checked::after {
+     content: "✓";
+     font-size: 0.7rem;
+     position: absolute;
+     top: -1px;
+     left: 2px;
+     color: #e5e7eb;
+   }
+   
+   /* --------------------------------------------------
+      App panel (sidebar + board)
+      -------------------------------------------------- */
+   
+   .app-panel {
+     width: 100%;
+     max-width: 1200px;
+     display: grid;
+     grid-template-columns: 260px minmax(0, 1fr);
+     gap: 12px;
+     animation: panel-fade-up 700ms ease-out;
+   }
+   
+   /* --------------------------------------------------
+      Sidebar
+      -------------------------------------------------- */
+   
+   .sidebar {
+     padding: 12px;
+     display: flex;
+     flex-direction: column;
+     gap: 12px;
+   }
+   
+   .sidebar-section h2 {
+     font-size: 0.95rem;
+     margin: 0 0 6px;
+   }
+   
+   .project-list,
+   .activity-list {
+     list-style: none;
+     padding: 0;
+     margin: 0;
+     max-height: 240px;
+     overflow-y: auto;
+     font-size: 0.85rem;
+   }
+   
+   /* project list items as animated nav-like chips */
+   
+   .project-list li {
+     padding: 6px 8px;
+     border-radius: 8px;
+     cursor: grab;
+     border: 1px solid transparent;
+     transition:
+       background 200ms ease,
+       border-color 200ms ease,
+       box-shadow 220ms ease,
+       transform 140ms ease;
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     gap: 6px;
+   }
+   
+   .project-name-text {
+     flex: 1;
+     white-space: nowrap;
+     overflow: hidden;
+     text-overflow: ellipsis;
+   }
+   
+   .project-done-check {
+     font-size: 0.9rem;
+     color: #4ade80;
+     margin-left: 4px;
+   }
+   
+   .project-list li:hover {
+     background: rgba(15, 23, 42, 0.98);
+     border-color: rgba(56, 189, 248, 0.6);
+     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.9);
+     transform: translateX(1px);
+   }
+   
+   .project-list li.selected {
+     background: rgba(8, 47, 73, 0.9);
+     border-color: rgba(56, 189, 248, 0.9);
+     box-shadow: 0 12px 34px rgba(15, 23, 42, 0.95);
+   }
+   
+   .project-list li.project-done {
+     border-color: rgba(34, 197, 94, 0.9);
+   }
+   
+   .project-list li.dragging-project {
+     opacity: 0.6;
+     transform: translateX(4px);
+     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.95);
+   }
+   
+   .activity-list li {
+     padding: 4px 6px;
+     border-bottom: 1px solid rgba(31, 41, 55, 0.9);
+   }
+   
+   /* --------------------------------------------------
+      Board area
+      -------------------------------------------------- */
+   
+   .board-area {
+     display: flex;
+     flex-direction: column;
+     gap: 10px;
+     animation: board-fade-in 700ms ease-out;
+   }
+   
+   .board-header {
+     padding: 10px 12px;
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+   }
+   
+   .board-header h2 {
+     margin: 0;
+     font-size: 1.1rem;
+   }
+   
+   .board-header p {
+     margin: 2px 0 0;
+     font-size: 0.85rem;
+   }
+   
+   .board-actions {
+     display: flex;
+     gap: 6px;
+   }
+   
+   .board {
+     flex: 1;
+     padding: 10px;
+     display: grid;
+     grid-auto-columns: minmax(220px, 1fr);
+     grid-auto-flow: column;
+     overflow-x: auto;
+     gap: 8px;
+   }
+   
+   /* --------------------------------------------------
+      XYMZ Suite tabs (Suite / Ops / BI / Fleet / Radar)
+      -------------------------------------------------- */
+   
+   .suite-tabs {
+     display: inline-flex;
+     gap: 6px;
+     padding: 6px;
+     margin-bottom: 8px;
+   }
+   
+   .suite-tab {
+     border-radius: 999px;
+     border: 1px solid rgba(148, 163, 184, 0.6);
+     background: rgba(15, 23, 42, 0.96);
+     color: #9ca3af;
+     padding: 6px 12px;
+     font-size: 0.8rem;
+     cursor: pointer;
+     text-transform: uppercase;
+     letter-spacing: 0.12em;
+     transition:
+       background 200ms ease,
+       color 200ms ease,
+       border-color 200ms ease,
+       box-shadow 220ms ease;
+   }
+   
+   .suite-tab.active {
+     color: #e5e7eb;
+     border-color: rgba(56, 189, 248, 0.9);
+     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.95);
+   }
+   
+   /* --------------------------------------------------
+      XYMZ.Suite (Welcome)
+      -------------------------------------------------- */
+   
+   .suite-view {
+     padding: 12px 14px;
+     margin-bottom: 10px;
+   }
+   
+   /* --------------------------------------------------
+      XYMZ.BI
+      -------------------------------------------------- */
+   
+   .bi-view {
+     padding: 12px 14px;
+   }
+   
+   .bi-header h2 {
+     margin: 0 0 4px;
+   }
+   
+   .bi-header p {
+     margin: 0 0 8px;
+   }
+   
+   /* Optional: BI drilldown area */
+   .bi-task-chart-area {
+     margin-top: 10px;
+     padding-top: 8px;
+     border-top: 1px solid rgba(31, 41, 55, 0.9);
+   }
+   
+   .bi-task-chart-title {
+     font-size: 0.85rem;
+     margin: 0 0 4px;
+     color: #e5e7eb;
+   }
+   
+   #bi-task-chart {
+     width: 100%;
+     height: 160px;
+   }
+   
+   /* --------------------------------------------------
+      Columns
+      -------------------------------------------------- */
+   
+   .column {
+     background: radial-gradient(
+         circle at top left,
+         rgba(56, 189, 248, 0.1),
+         transparent 55%
+       ),
+       rgba(15, 23, 42, 0.98);
+     border-radius: 10px;
+     border: 1px solid rgba(55, 65, 81, 1);
+     padding: 8px;
+     min-height: 120px;
+     display: flex;
+     flex-direction: column;
+     transform: translateY(0);
+     transition:
+       box-shadow 220ms ease,
+       transform 200ms ease,
+       border-color 200ms ease;
+   }
+   
+   /* subtle float-on-hover for columns */
+   .column:hover {
+     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.95);
+     transform: translateY(-2px);
+     border-color: rgba(56, 189, 248, 0.7);
+   }
+   
+   .column-header {
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+     margin-bottom: 6px;
+   }
+   
+   .column-title {
+     font-size: 0.9rem;
+     font-weight: 500;
+   }
+   
+   .column-count {
+     font-size: 0.75rem;
+     color: #9ca3af;
+   }
+   
+   .column-body {
+     flex: 1;
+     min-height: 80px;
+   }
+   
+   /* --------------------------------------------------
+      Tasks (cards)
+      -------------------------------------------------- */
+   
+   .task-card {
+     border-radius: 10px;
+     border: 1px solid rgba(31, 41, 55, 1);
+     background: rgba(15, 23, 42, 0.95);
+     padding: 6px 8px;
+     margin-bottom: 6px;
+     cursor: grab;
+     transform-origin: center;
+     transition:
+       border-color 200ms ease,
+       box-shadow 220ms ease,
+       transform 160ms ease,
+       background 180ms ease,
+       opacity 160ms ease;
+     animation: task-pop-in 260ms ease-out;
+   }
+   
+   .task-card:hover {
+     border-color: rgba(56, 189, 248, 0.7);
+     box-shadow: 0 16px 32px rgba(15, 23, 42, 0.95);
+     transform: translateY(-2px) scale(1.01);
+     background: rgba(15, 23, 42, 1);
+   }
+   
+   .task-card.dragging {
+     opacity: 0.5;
+     transform: scale(0.98);
+   }
+   
+   .task-title {
+     font-size: 0.9rem;
+     margin: 0 0 4px;
+   }
+   
+   .task-meta {
+     font-size: 0.75rem;
+     display: flex;
+     justify-content: space-between;
+     color: #9ca3af;
+   }
+   
+   /* priority pills */
+   
+   .priority-pill {
+     padding: 2px 6px;
+     border-radius: 999px;
+     font-size: 0.7rem;
+   }
+   
+   .priority-low {
+     background: rgba(22, 163, 74, 0.2);
+     color: #4ade80;
+   }
+   
+   .priority-medium {
+     background: rgba(234, 179, 8, 0.16);
+     color: #fde047;
+   }
+   
+   .priority-high {
+     background: rgba(239, 68, 68, 0.2);
+     color: #fca5a5;
+   }
+   
+   /* --------------------------------------------------
+      Task detail (RIGHT SIDE PANEL)
+      -------------------------------------------------- */
+   
+   .task-detail {
+     margin-top: 10px;
+     padding: 10px 12px;
+     position: relative;
+   }
+   
+   /* If you prefer internal scroll instead of page scroll, use:
+   .task-detail {
+     max-height: calc(100vh - 140px);
+     overflow-y: auto;
+   }
+   */
+   
+   .close-btn {
+     position: absolute;
+     top: 8px;
+     right: 8px;
+   }
+   
+   .task-detail h3 {
+     margin-top: 0;
+   }
+   
+   .task-detail h4 {
+     margin-bottom: 4px;
+   }
+   
+   .muted {
+     color: #9ca3af;
+     font-size: 0.85rem;
+   }
+   
+   /* --------------------------------------------------
+      Form in detail
+      -------------------------------------------------- */
+   
+   #detail-form label {
+     display: block;
+     font-size: 0.85rem;
+     margin-bottom: 6px;
+   }
+   
+   #detail-form input,
+   #detail-form textarea,
+   #detail-form select {
+     width: 100%;
+     margin-top: 3px;
+     border-radius: 8px;
+     border: 1px solid rgba(148, 163, 184, 0.6);
+     background: rgba(15, 23, 42, 0.98);
+     color: #e5e7eb;
+     padding: 5px 7px;
+     font-size: 0.85rem;
+     transition:
+       border-color 200ms ease,
+       box-shadow 200ms ease,
+       background 200ms ease;
+   }
+   
+   #detail-form input:focus,
+   #detail-form textarea:focus,
+   #detail-form select:focus {
+     border-color: rgba(56, 189, 248, 0.8);
+     box-shadow: 0 0 0 1px rgba(15, 23, 42, 1), 0 0 26px rgba(56, 189, 248, 0.3);
+   }
+   
+   /* footer row for Save / Delete buttons */
+   .detail-footer {
+     margin-top: 10px;
+     display: flex;
+     gap: 6px;
+     align-items: center;
+   }
+   
+   /* If you use IDs directly */
+   #detail-save-btn,
+   #detail-delete-task {
+     margin-top: 8px;
+   }
+   
+   /* --------------------------------------------------
+      Comments
+      -------------------------------------------------- */
+   
+   .comments-list {
+     list-style: none;
+     padding: 0;
+     margin: 6px 0;
+     max-height: 160px;
+     overflow-y: auto;
+     font-size: 0.8rem;
+   }
+   
+   .comments-list li {
+     padding: 4px 0;
+     border-bottom: 1px solid rgba(31, 41, 55, 1);
+   }
+   
+   .comment-form {
+     display: flex;
+     gap: 6px;
+     margin-top: 6px;
+   }
+   
+   .comment-form textarea {
+     flex: 1;
+     border-radius: 8px;
+     border: 1px solid rgba(148, 163, 184, 0.6);
+     background: rgba(15, 23, 42, 0.98);
+     color: #e5e7eb;
+     padding: 5px 7px;
+     font-size: 0.85rem;
+   }
+   
+   /* --------------------------------------------------
+      Org switcher
+      -------------------------------------------------- */
+   
+   .org-switcher select {
+     border-radius: 999px;
+     padding: 4px 10px;
+     background: rgba(15, 23, 42, 0.98);
+     color: #e5e7eb;
+     border: 1px solid rgba(148, 163, 184, 0.6);
+     font-size: 0.8rem;
+   }
+   
+   /* --------------------------------------------------
+      XYMZ.Fleet
+      -------------------------------------------------- */
+   
+   .fleet-view {
+     padding: 12px 14px;
+     margin-bottom: 10px;
+   }
+   
+   .fleet-header h2 {
+     margin: 0 0 4px;
+   }
+   
+   .fleet-header p {
+     margin: 0 0 10px;
+   }
+   
+   .fleet-layout {
+     display: grid;
+     grid-template-columns: minmax(0, 1.5fr) minmax(0, 2fr);
+     gap: 12px;
+     margin-top: 10px;
+   }
+   
+   .fleet-roster,
+   .fleet-insights {
+     background: rgba(15, 23, 42, 0.9);
+     border-radius: 12px;
+     border: 1px solid rgba(51, 65, 85, 0.9);
+     padding: 10px 12px;
+   }
+   
+   .fleet-section-title {
+     margin: 0 0 6px;
+     font-size: 0.9rem;
+   }
+   
+   .fleet-list {
+     list-style: none;
+     padding: 0;
+     margin: 6px 0 0;
+     max-height: 260px;
+     overflow-y: auto;
+     font-size: 0.85rem;
+   }
+   
+   .fleet-list li {
+     padding: 6px 8px;
+     border-radius: 8px;
+     border: 1px solid rgba(30, 41, 59, 1);
+     display: flex;
+     flex-direction: column;
+     gap: 2px;
+     margin-bottom: 6px;
+     background: rgba(15, 23, 42, 0.98);
+   }
+   
+   .fleet-list li .fleet-name {
+     font-weight: 500;
+     font-size: 0.86rem;
+   }
+   
+   .fleet-list li .fleet-meta {
+     font-size: 0.78rem;
+     color: #9ca3af;
+   }
+   
+   .fleet-metrics-grid {
+     margin-top: 6px;
+     display: grid;
+     grid-template-columns: repeat(3, minmax(0, 1fr));
+     gap: 8px;
+   }
+   
+   .fleet-metric-card {
+     border-radius: 10px;
+     border: 1px solid rgba(51, 65, 85, 0.9);
+     padding: 6px 8px;
+     background: radial-gradient(
+         circle at top left,
+         rgba(148, 163, 184, 0.18),
+         transparent 55%
+       ),
+       rgba(15, 23, 42, 0.98);
+   }
+   
+   .fleet-metric-card h4 {
+     margin: 0 0 4px;
+     font-size: 0.78rem;
+     letter-spacing: 0.08em;
+   }
+   
+   .fleet-metric-value {
+     margin: 0;
+     font-size: 1.1rem;
+     font-weight: 600;
+   }
+   
+   .fleet-bottom-panel {
+     margin-top: 10px;
+     padding-top: 8px;
+     border-top: 1px solid rgba(31, 41, 55, 0.9);
+   }
+   
+   /* --------------------------------------------------
+      XYMZ.Radar
+      -------------------------------------------------- */
+   
+   .radar-view {
+     padding: 12px 14px;
+     margin-bottom: 10px;
+   }
+   
+   .radar-header h2 {
+     margin: 0 0 4px;
+   }
+   
+   .radar-header p {
+     margin: 0 0 8px;
+   }
+   
+   .radar-grid {
+     display: grid;
+     grid-template-columns: repeat(3, minmax(0, 1fr));
+     gap: 10px;
+     margin-top: 8px;
+   }
+   
+   .radar-card {
+     border-radius: 12px;
+     border: 1px solid rgba(51, 65, 85, 0.9);
+     background: rgba(15, 23, 42, 0.96);
+     padding: 10px 12px;
+   }
+   
+   .radar-card h3 {
+     margin: 0 0 4px;
+     font-size: 0.9rem;
+   }
+   
+   .radar-card .status-text {
+     margin-top: 2px;
+   }
+   
+   .radar-list {
+     list-style: none;
+     padding: 0;
+     margin: 8px 0 0;
+     max-height: 190px;
+     overflow-y: auto;
+     font-size: 0.82rem;
+   }
+   
+   .radar-list li {
+     padding: 4px 0;
+     border-bottom: 1px solid rgba(31, 41, 55, 1);
+   }
+   
+/* NEW: make clickable Radar rows feel interactive */
+.radar-clickable {
+  position: relative;
+  display: flex;              /* bar + text side-by-side */
+  align-items: center;
+  gap: 12px;                  /* distance between bar and text */
+
+  padding: 12px 20px;         /* overall padding */
+  margin: 4px 0;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  color: #e5e7eb;
+  line-height: 1.35;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 200ms ease,
+    transform 140ms ease,
+    color 160ms ease;
+}
+
+.radar-clickable::before {
+  content: "";
+  flex: 0 0 3px;              /* width of the vertical bar */
+  align-self: stretch;        /* full height of the row */
+
+  border-radius: 999px;
+  background: linear-gradient(
+    to bottom,
+    rgba(252, 211, 77, 0.9),
+    rgba(248, 113, 113, 0.9)
+  );
+  opacity: 0.7;
+  transition:
+    opacity 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.radar-clickable:hover {
+  background: rgba(31, 41, 55, 0.9);
+  border-color: rgba(248, 113, 113, 0.6);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.95);
+  transform: translateY(-1px);
+}
+
+.radar-clickable:hover::before {
+  opacity: 1;
+  box-shadow: 0 0 12px rgba(248, 113, 113, 0.7);
+}
+
+   
+   /* --------------------------------------------------
+      Utilities
+      -------------------------------------------------- */
+   
+   .hidden {
+     display: none !important;
+   }
+   
+   /* Screen-reader only text (for Instagram label) */
+   .sr-only {
+     position: absolute;
+     width: 1px;
+     height: 1px;
+     padding: 0;
+     margin: -1px;
+     overflow: hidden;
+     clip: rect(0, 0, 0, 0);
+     border: 0;
+   }
+   
+   /* --------------------------------------------------
+      Responsive
+      -------------------------------------------------- */
+   
+   @media (max-width: 960px) {
+     .main-layout {
+       padding: 10px;
+     }
+   
+     .app-panel {
+       grid-template-columns: 1fr;
+     }
+   
+     .sidebar {
+       order: 2;
+     }
+   
+     .board-area {
+       order: 1;
+     }
+   
+     .fleet-layout {
+       grid-template-columns: 1fr;
+     }
+   
+     .radar-grid {
+       grid-template-columns: 1fr;
+     }
+   }
+   
+   /* --------------------------------------------------
+      Suite Footer (About / FAQs / Contact / Social)
+      -------------------------------------------------- */
+   
+   .suite-footer {
+     margin-top: 16px;
+     padding: 16px 14px 6px;
+     border-top: 1px solid rgba(31, 41, 55, 0.9);
+     font-size: 0.85rem;
+   }
+   
+   .suite-footer-inner {
+     display: grid;
+     grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr);
+     gap: 16px;
+   }
+   
+   .footer-section h3 {
+     margin: 0 0 8px;
+     font-size: 0.9rem;
+   }
+   
+   /* About + FAQs via <details> */
+   
+   .footer-section details {
+     background: rgba(15, 23, 42, 0.9);
+     border-radius: 10px;
+     border: 1px solid rgba(31, 41, 55, 0.95);
+     padding: 8px 10px;
+   }
+   
+   .footer-section summary {
+     list-style: none;
+     cursor: pointer;
+     font-size: 0.85rem;
+     font-weight: 600;
+     letter-spacing: 0.06em;
+     text-transform: uppercase;
+     color: #e5e7eb;
+   }
+   
+   .footer-section summary::-webkit-details-marker {
+     display: none;
+   }
+   
+   .footer-section details[open] summary {
+     color: #38bdf8; /* accent when open */
+   }
+   
+   .footer-section details p {
+     margin: 6px 0;
+     color: #9ca3af;
+   }
+   
+   /* FAQ layout inside details */
+   
+   .footer-faq-list {
+     margin-top: 6px;
+     display: flex;
+     flex-direction: column;
+     gap: 8px;
+   }
+   
+   .faq-item h4 {
+     margin: 4px 0;
+     font-size: 0.8rem;
+     text-transform: none;
+     letter-spacing: 0.02em;
+   }
+   
+   .faq-item p {
+     margin: 2px 0 0;
+   }
+   
+   /* Contact */
+   
+   .footer-contact p {
+     margin: 4px 0;
+   }
+   
+   .footer-contact a {
+     color: #38bdf8;
+     text-decoration: none;
+   }
+   
+   .footer-contact a:hover {
+     text-decoration: underline;
+   }
+   
+   /* Social icons */
+   
+   .footer-social .social-row {
+     display: flex;
+     flex-wrap: wrap;
+     gap: 8px;
+     margin-top: 4px;
+   }
+   
+   .social-icon {
+     width: 32px;
+     height: 32px;
+     border-radius: 999px;
+     border: 1px solid rgba(148, 163, 184, 0.7);
+     display: inline-flex;
+     align-items: center;
+     justify-content: center;
+     font-size: 0.75rem;
+     text-decoration: none;
+     color: #e5e7eb;
+     background: rgba(15, 23, 42, 0.95);
+     transition:
+       background 180ms ease,
+       border-color 180ms ease,
+       box-shadow 180ms ease,
+       transform 140ms ease;
+   }
+   
+   /* Size SVGs nicely inside the social icon */
+   .social-icon svg {
+     width: 16px;
+     height: 16px;
+   }
+   
+   /* keep spans non-clickable */
+   .social-icon span {
+     pointer-events: none;
+   }
+   
+   /* subtle brand tints */
+   .social-instagram {
+     border-color: rgba(249, 115, 22, 0.7);
+   }
+   
+   .social-twitter {
+     border-color: rgba(56, 189, 248, 0.7);
+   }
+   
+   .social-linkedin {
+     border-color: rgba(59, 130, 246, 0.7);
+   }
+   
+   .social-facebook {
+     border-color: rgba(37, 99, 235, 0.7);
+   }
+   
+   .social-icon:hover {
+     transform: translateY(-1px);
+     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.9);
+     background: rgba(15, 23, 42, 1);
+   }
+   
+   /* Responsive footer layout */
+   
+   @media (max-width: 960px) {
+     .suite-footer-inner {
+       grid-template-columns: 1fr 1fr;
+     }
+   }
+   
+   @media (max-width: 640px) {
+     .suite-footer-inner {
+       grid-template-columns: 1fr;
+     }
+   }
+   
+   /* --------------------------------------------------
+      THEME VARIANTS (Suite / Ops / BI / Fleet / Radar)
+      -------------------------------------------------- */
+   
+   /* Suite = default look (but we explicitly set it so switching back is clean) */
+   body.theme-suite {
+     background: radial-gradient(circle at top left, #020617 0, #020617 45%, #000 100%);
+   }
+   
+   body.theme-suite .topbar {
+     background: radial-gradient(
+         circle at top left,
+         rgba(56, 189, 248, 0.15),
+         transparent 55%
+       ),
+       linear-gradient(135deg, #020617, #020617, #020617);
+   }
+   
+   /* Ops: Fulvous (warm operations aesthetic) */
+   body.theme-ops {
+     background: radial-gradient(circle at top left, #1a1004 0, #020617 50%, #020617 100%);
+   }
+   
+   body.theme-ops .topbar {
+     border-bottom-color: rgba(228, 132, 0, 0.6);
+     background: radial-gradient(
+         circle at top left,
+         rgba(228, 132, 0, 0.18),
+         transparent 55%
+       ),
+       linear-gradient(135deg, #1a1004, #020617, #020617);
+   }
+   
+   body.theme-ops .card {
+     background: rgba(13, 16, 24, 0.98);
+     border-color: rgba(228, 132, 0, 0.25);
+   }
+   
+   body.theme-ops .column {
+     background: radial-gradient(
+         circle at top left,
+         rgba(228, 132, 0, 0.16),
+         transparent 55%
+       ),
+       rgba(13, 16, 24, 0.98);
+     border-color: rgba(180, 83, 9, 0.9);
+   }
+   
+   body.theme-ops .task-card:hover {
+     border-color: rgba(228, 132, 0, 0.8);
+     box-shadow: 0 18px 40px rgba(15, 15, 15, 0.95);
+   }
+   
+   body.theme-ops .suite-tab.active {
+     border-color: rgba(228, 132, 0, 0.95);
+     box-shadow: 0 10px 30px rgba(120, 53, 15, 0.9);
+   }
+   
+   /* BI: deep navy with indigo/violet analytics look */
+   body.theme-bi {
+     background: radial-gradient(circle at top left, #020617 0, #020617 40%, #02011a 100%);
+   }
+   
+   body.theme-bi .topbar {
+     border-bottom-color: rgba(129, 140, 248, 0.65);
+     background: radial-gradient(
+         circle at top left,
+         rgba(129, 140, 248, 0.2),
+         transparent 55%
+       ),
+       linear-gradient(135deg, #020617, #02011a, #020617);
+   }
+   
+   body.theme-bi .card {
+     background: rgba(15, 23, 42, 0.98);
+     border-color: rgba(129, 140, 248, 0.35);
+   }
+   
+   body.theme-bi .bi-view {
+     background: radial-gradient(
+         circle at top left,
+         rgba(129, 140, 248, 0.18),
+         transparent 65%
+       );
+     border-radius: 16px;
+   }
+   
+   body.theme-bi .column {
+     background: radial-gradient(
+         circle at top left,
+         rgba(129, 140, 248, 0.18),
+         transparent 55%
+       ),
+       rgba(15, 23, 42, 0.98);
+     border-color: rgba(55, 65, 81, 1);
+   }
+   
+   body.theme-bi .suite-tab.active {
+     border-color: rgba(129, 140, 248, 0.95);
+     box-shadow: 0 14px 34px rgba(15, 23, 42, 0.95);
+   }
+   
+   /* Fleet: light brown / bronze aesthetic */
+   body.theme-fleet {
+     background: radial-gradient(circle at top left, #3a2614 0, #17110a 45%, #020617 100%);
+   }
+   
+   body.theme-fleet .topbar {
+     border-bottom-color: rgba(214, 158, 72, 0.7);
+     background: radial-gradient(
+         circle at top left,
+         rgba(214, 158, 72, 0.22),
+         transparent 55%
+       ),
+       linear-gradient(135deg, #3a2614, #17110a, #020617);
+   }
+   
+   body.theme-fleet .card {
+     background: rgba(20, 16, 12, 0.98);
+     border-color: rgba(214, 158, 72, 0.32);
+   }
+   
+   body.theme-fleet .fleet-view {
+     background: radial-gradient(
+         circle at top left,
+         rgba(214, 158, 72, 0.18),
+         transparent 60%
+       ),
+       rgba(20, 16, 12, 0.98);
+   }
+   
+   body.theme-fleet .suite-tab.active {
+     border-color: rgba(214, 158, 72, 0.95);
+     box-shadow: 0 12px 32px rgba(120, 69, 33, 0.9);
+   }
+   
+   /* Radar: light russet aesthetic */
+   body.theme-radar {
+     background: radial-gradient(circle at top left, #3b1410 0, #190707 45%, #020617 100%);
+   }
+   
+   body.theme-radar .topbar {
+     border-bottom-color: rgba(230, 116, 88, 0.7);
+     background: radial-gradient(
+         circle at top left,
+         rgba(230, 116, 88, 0.2),
+         transparent 55%
+       ),
+       linear-gradient(135deg, #3b1410, #190707, #020617);
+   }
+   
+   body.theme-radar .card {
+     background: rgba(20, 12, 12, 0.98);
+     border-color: rgba(230, 116, 88, 0.28);
+   }
+   
+   body.theme-radar .radar-view {
+     background: radial-gradient(
+         circle at top left,
+         rgba(230, 116, 88, 0.18),
+         transparent 60%
+       ),
+       rgba(20, 12, 12, 0.98);
+   }
+   
+   body.theme-radar .suite-tab.active {
+     border-color: rgba(230, 116, 88, 0.95);
+     box-shadow: 0 12px 32px rgba(127, 29, 29, 0.9);
+   }
+   
+   /* --------------------------------------------------
+      Animations (CSS3 motion)
+      -------------------------------------------------- */
+   
+   /* topbar gentle fade */
+   @keyframes topbar-fade-in {
+     from {
+       opacity: 0;
+       transform: translateY(-12px);
+     }
+     to {
+       opacity: 1;
+       transform: translateY(0);
+     }
+   }
+   
+   /* general panel fade up (auth + app) */
+   @keyframes panel-fade-up {
+     from {
+       opacity: 0;
+       transform: translateY(18px);
+     }
+     to {
+       opacity: 1;
+       transform: translateY(0);
+     }
+   }
+   
+   /* board container fade */
+   @keyframes board-fade-in {
+     from {
+       opacity: 0;
+       transform: translateY(10px);
+     }
+     to {
+       opacity: 1;
+       transform: translateY(0);
+     }
+   }
+   
+   /* task pop-in (slight scale from below) */
+   @keyframes task-pop-in {
+     from {
+       opacity: 0;
+       transform: translateY(8px) scale(0.98);
+     }
+     to {
+       opacity: 1;
+       transform: translateY(0) scale(1);
+     }
+   }
+   
