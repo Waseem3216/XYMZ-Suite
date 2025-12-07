@@ -1,20 +1,19 @@
 {
-    "name": "taskdesk-backend",
-    "version": "1.0.0",
-    "description": "XYMZ.Ops – Shared Workspace for Client Projects",
-    "main": "server.js",
-    "scripts": {
-      "start": "node server.js"
-    },
-    "dependencies": {
-      "bcryptjs": "^2.4.3",
-      "better-sqlite3": "^9.4.0",
-      "cors": "^2.8.5",
-      "dotenv": "^17.2.3",
-      "express": "^4.19.2",
-      "jsonwebtoken": "^9.0.2",
-      "morgan": "^1.10.0",
-      "multer": "^2.0.0"
-    }
+  "name": "taskdesk-backend",
+  "version": "1.0.0",
+  "description": "XYMZ.Ops – Shared Workspace for Client Projects",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.0",
+    "mysql2": "^3.15.3"
   }
-  
+}

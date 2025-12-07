@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 const morgan = require('morgan');
 const multer = require('multer');
 const fs = require('fs');
-const db = require('./db');
+const db = require('./db'); // uses mysql2 helper (get/all/run)
 
 dotenv.config();
 
@@ -53,14 +53,16 @@ function authMiddleware(req, res, next) {
 
 // ---- Tiny helpers ----
 function nowISO() {
-  return new Date().toISOString();
+  return new Date().toISOString().slice(0, 19).replace('T', ' ');
 }
 
-function logActivity(orgId, userId, type, payload) {
-  if (!orgId) return; // org_id is NOT NULL in table; only log if we have an org
-  db.prepare(
-    'INSERT INTO activity_log (org_id, user_id, type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)'
-  ).run(orgId, userId || null, type, JSON.stringify(payload || {}), nowISO());
+async function logActivity(orgId, userId, type, payload) {
+  if (!orgId) return;
+  await db.run(
+    `INSERT INTO activity_log (org_id, user_id, type, payload_json, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [orgId, userId || null, type, JSON.stringify(payload || {}), nowISO()]
+  );
 }
 
 // ---- Auth routes ----
@@ -70,7 +72,7 @@ function logActivity(orgId, userId, type, payload) {
 // - is_admin: bool
 // - org_token: 6-digit token REQUIRED if is_admin === true
 // - org_name: optional name for the organization (admins)
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const {
     email,
     name,
@@ -101,33 +103,35 @@ app.post('/api/auth/register', (req, res) => {
   const isAdmin = !!is_admin;
   let trimmedOrgToken = null;
 
-  if (isAdmin) {
-    if (!org_token) {
-      return res
-        .status(400)
-        .json({ error: 'Organization 6-digit token is required for admins.' });
-    }
-    trimmedOrgToken = String(org_token).trim();
-    if (!/^\d{6}$/.test(trimmedOrgToken)) {
-      return res
-        .status(400)
-        .json({ error: 'Organization token must be exactly 6 digits.' });
-    }
-
-    const existingTokenOrg = db
-      .prepare('SELECT id FROM organizations WHERE join_token = ?')
-      .get(trimmedOrgToken);
-    if (existingTokenOrg) {
-      return res
-        .status(409)
-        .json({ error: 'That organization token is already in use.' });
-    }
-  }
-
   try {
-    const existing = db
-      .prepare('SELECT id FROM users WHERE email = ?')
-      .get(trimmedEmail);
+    if (isAdmin) {
+      if (!org_token) {
+        return res
+          .status(400)
+          .json({ error: 'Organization 6-digit token is required for admins.' });
+      }
+      trimmedOrgToken = String(org_token).trim();
+      if (!/^\d{6}$/.test(trimmedOrgToken)) {
+        return res
+          .status(400)
+          .json({ error: 'Organization token must be exactly 6 digits.' });
+      }
+
+      const existingTokenOrg = await db.get(
+        'SELECT id FROM organizations WHERE join_token = ?',
+        [trimmedOrgToken]
+      );
+      if (existingTokenOrg) {
+        return res
+          .status(409)
+          .json({ error: 'That organization token is already in use.' });
+      }
+    }
+
+    const existing = await db.get(
+      'SELECT id FROM users WHERE email = ?',
+      [trimmedEmail]
+    );
     if (existing) {
       return res.status(409).json({ error: 'Email already registered.' });
     }
@@ -139,64 +143,56 @@ app.post('/api/auth/register', (req, res) => {
     const secAnswer = String(security_answer).trim().toLowerCase();
     const secAnswerHash = bcrypt.hashSync(secAnswer, 10);
 
-    const userInfo = db
-      .prepare(
-        `INSERT INTO users
-         (email, name, password_hash, security_question, security_answer_hash, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`
-      )
-      .run(trimmedEmail, name.trim(), passwordHash, secQuestion, secAnswerHash, createdAt);
+    const userInfo = await db.run(
+      `INSERT INTO users
+       (email, name, password_hash, security_question, security_answer_hash, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [trimmedEmail, name.trim(), passwordHash, secQuestion, secAnswerHash, createdAt]
+    );
 
-    const userId = userInfo.lastInsertRowid;
-
+    const userId = userInfo.lastInsertId;
     let orgId = null;
 
     if (isAdmin) {
       // Create organization with this admin + join token
       const finalOrgName =
         (org_name && String(org_name).trim()) || `${name.trim()}'s Workspace`;
-      const orgInfo = db
-        .prepare(
-          'INSERT INTO organizations (name, owner_user_id, join_token, created_at) VALUES (?, ?, ?, ?)'
-        )
-        .run(finalOrgName, userId, trimmedOrgToken, createdAt);
 
-      orgId = orgInfo.lastInsertRowid;
+      const orgInfo = await db.run(
+        'INSERT INTO organizations (name, owner_user_id, join_token, created_at) VALUES (?, ?, ?, ?)',
+        [finalOrgName, userId, trimmedOrgToken, createdAt]
+      );
+      orgId = orgInfo.lastInsertId;
 
-      db.prepare(
-        'INSERT INTO org_members (org_id, user_id, role, invited_at) VALUES (?, ?, ?, ?)'
-      ).run(orgId, userId, 'owner', createdAt);
+      await db.run(
+        'INSERT INTO org_members (org_id, user_id, role, invited_at) VALUES (?, ?, ?, ?)',
+        [orgId, userId, 'owner', createdAt]
+      );
 
       // Create a sample project + columns
-      const projInfo = db
-        .prepare(
-          'INSERT INTO projects (org_id, name, description, status, created_at) VALUES (?, ?, ?, ?, ?)'
-        )
-        .run(
-          orgId,
-          'Welcome Project',
-          'Your first project in XYMZ.Ops',
-          'active',
-          createdAt
-        );
-      const projectId = projInfo.lastInsertRowid;
+      const projInfo = await db.run(
+        'INSERT INTO projects (org_id, name, description, status, created_at) VALUES (?, ?, ?, ?, ?)',
+        [orgId, 'Welcome Project', 'Your first project in XYMZ.Ops', 'active', createdAt]
+      );
+      const projectId = projInfo.lastInsertId;
 
       const defaultColumns = ['Backlog', 'In Progress', 'Review', 'Done'];
-      defaultColumns.forEach((colName, index) => {
-        db.prepare(
-          'INSERT INTO project_columns (project_id, name, position, created_at) VALUES (?, ?, ?, ?)'
-        ).run(projectId, colName, index, createdAt);
-      });
+      for (let i = 0; i < defaultColumns.length; i += 1) {
+        const colName = defaultColumns[i];
+        await db.run(
+          'INSERT INTO project_columns (project_id, name, position, created_at) VALUES (?, ?, ?, ?)',
+          [projectId, colName, i, createdAt]
+        );
+      }
 
-      logActivity(orgId, userId, 'org_created', {
+      await logActivity(orgId, userId, 'org_created', {
         name: finalOrgName,
         join_token: trimmedOrgToken
       });
     }
 
-    // Only log user_registered if they have an org_id we can attach it to
     if (orgId) {
-      logActivity(orgId, userId, 'user_registered', { email: trimmedEmail });
+      await logActivity(orgId, userId, 'user_registered', { email: trimmedEmail });
     }
 
     const token = jwt.sign(
@@ -215,7 +211,7 @@ app.post('/api/auth/register', (req, res) => {
   }
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) {
     return res
@@ -225,9 +221,7 @@ app.post('/api/auth/login', (req, res) => {
   const trimmedEmail = String(email).toLowerCase().trim();
 
   try {
-    const user = db
-      .prepare('SELECT * FROM users WHERE email = ?')
-      .get(trimmedEmail);
+    const user = await db.get('SELECT * FROM users WHERE email = ?', [trimmedEmail]);
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
@@ -253,7 +247,7 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 // NEW: Get security question for an email (for password reset)
-app.get('/api/auth/security-question', (req, res) => {
+app.get('/api/auth/security-question', async (req, res) => {
   const emailRaw = req.query.email || '';
   const email = String(emailRaw).toLowerCase().trim();
   if (!email) {
@@ -261,11 +255,10 @@ app.get('/api/auth/security-question', (req, res) => {
   }
 
   try {
-    const user = db
-      .prepare(
-        'SELECT security_question FROM users WHERE email = ?'
-      )
-      .get(email);
+    const user = await db.get(
+      'SELECT security_question FROM users WHERE email = ?',
+      [email]
+    );
 
     if (!user || !user.security_question) {
       return res
@@ -281,7 +274,7 @@ app.get('/api/auth/security-question', (req, res) => {
 });
 
 // NEW: Reset password using security answer
-app.post('/api/auth/reset-password', (req, res) => {
+app.post('/api/auth/reset-password', async (req, res) => {
   const { email, security_answer, new_password } = req.body || {};
   if (!email || !security_answer || !new_password) {
     return res.status(400).json({
@@ -300,11 +293,10 @@ app.post('/api/auth/reset-password', (req, res) => {
   }
 
   try {
-    const user = db
-      .prepare(
-        'SELECT id, security_answer_hash FROM users WHERE email = ?'
-      )
-      .get(trimmedEmail);
+    const user = await db.get(
+      'SELECT id, security_answer_hash FROM users WHERE email = ?',
+      [trimmedEmail]
+    );
 
     if (!user || !user.security_answer_hash) {
       return res
@@ -318,10 +310,10 @@ app.post('/api/auth/reset-password', (req, res) => {
     }
 
     const newHash = bcrypt.hashSync(newPwd, 10);
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
+    await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [
       newHash,
       user.id
-    );
+    ]);
 
     res.json({ success: true });
   } catch (err) {
@@ -331,7 +323,7 @@ app.post('/api/auth/reset-password', (req, res) => {
 });
 
 // NEW: Reset organization 6-digit token (admin / owner only)
-app.post('/api/auth/reset-org-token', (req, res) => {
+app.post('/api/auth/reset-org-token', async (req, res) => {
   const { email, password, new_token } = req.body || {};
   if (!email || !password || !new_token) {
     return res.status(400).json({
@@ -349,9 +341,9 @@ app.post('/api/auth/reset-org-token', (req, res) => {
   }
 
   try {
-    const user = db
-      .prepare('SELECT * FROM users WHERE email = ?')
-      .get(trimmedEmail);
+    const user = await db.get('SELECT * FROM users WHERE email = ?', [
+      trimmedEmail
+    ]);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
@@ -361,9 +353,10 @@ app.post('/api/auth/reset-org-token', (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
-    const existingTokenOrg = db
-      .prepare('SELECT id FROM organizations WHERE join_token = ?')
-      .get(token);
+    const existingTokenOrg = await db.get(
+      'SELECT id FROM organizations WHERE join_token = ?',
+      [token]
+    );
     if (existingTokenOrg) {
       return res
         .status(409)
@@ -371,16 +364,15 @@ app.post('/api/auth/reset-org-token', (req, res) => {
     }
 
     // Find an organization where this user is owner
-    const org = db
-      .prepare(
-        `SELECT o.*
-         FROM organizations o
-         JOIN org_members m ON m.org_id = o.id
-         WHERE m.user_id = ? AND m.role = 'owner'
-         ORDER BY o.created_at ASC
-         LIMIT 1`
-      )
-      .get(user.id);
+    const org = await db.get(
+      `SELECT o.*
+       FROM organizations o
+       JOIN org_members m ON m.org_id = o.id
+       WHERE m.user_id = ? AND m.role = 'owner'
+       ORDER BY o.created_at ASC
+       LIMIT 1`,
+      [user.id]
+    );
 
     if (!org) {
       return res.status(403).json({
@@ -388,11 +380,12 @@ app.post('/api/auth/reset-org-token', (req, res) => {
       });
     }
 
-    db.prepare(
-      'UPDATE organizations SET join_token = ? WHERE id = ?'
-    ).run(token, org.id);
+    await db.run('UPDATE organizations SET join_token = ? WHERE id = ?', [
+      token,
+      org.id
+    ]);
 
-    logActivity(org.id, user.id, 'org_token_reset', {
+    await logActivity(org.id, user.id, 'org_token_reset', {
       join_token: token
     });
 
@@ -408,27 +401,32 @@ app.post('/api/auth/reset-org-token', (req, res) => {
 });
 
 // Current user + org memberships
-app.get('/api/me', authMiddleware, (req, res) => {
-  const user = db
-    .prepare('SELECT id, email, name, created_at FROM users WHERE id = ?')
-    .get(req.user.id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
+app.get('/api/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await db.get(
+      'SELECT id, email, name, created_at FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-  const orgs = db
-    .prepare(
+    const orgs = await db.all(
       `SELECT o.id, o.name, o.created_at, m.role
        FROM organizations o
        JOIN org_members m ON m.org_id = o.id
        WHERE m.user_id = ?
-       ORDER BY o.created_at ASC`
-    )
-    .all(req.user.id);
+       ORDER BY o.created_at ASC`,
+      [req.user.id]
+    );
 
-  res.json({ user, orgs });
+    res.json({ user, orgs });
+  } catch (err) {
+    console.error('Error in /api/me:', err);
+    res.status(500).json({ error: 'Failed to load session.' });
+  }
 });
 
 // ---- Join organization by 6-digit token ----
-app.post('/api/orgs/join-token', authMiddleware, (req, res) => {
+app.post('/api/orgs/join-token', authMiddleware, async (req, res) => {
   const { token } = req.body || {};
   const trimmedToken = String(token || '').trim();
 
@@ -440,25 +438,28 @@ app.post('/api/orgs/join-token', authMiddleware, (req, res) => {
   }
 
   try {
-    const org = db
-      .prepare('SELECT id, name, created_at FROM organizations WHERE join_token = ?')
-      .get(trimmedToken);
+    const org = await db.get(
+      'SELECT id, name, created_at FROM organizations WHERE join_token = ?',
+      [trimmedToken]
+    );
 
     if (!org) {
       return res.status(404).json({ error: 'No organization found for that token.' });
     }
 
-    const existingMembership = db
-      .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-      .get(org.id, req.user.id);
+    const existingMembership = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [org.id, req.user.id]
+    );
 
     if (!existingMembership) {
       const now = nowISO();
-      db.prepare(
-        'INSERT INTO org_members (org_id, user_id, role, invited_at) VALUES (?, ?, ?, ?)'
-      ).run(org.id, req.user.id, 'member', now);
+      await db.run(
+        'INSERT INTO org_members (org_id, user_id, role, invited_at) VALUES (?, ?, ?, ?)',
+        [org.id, req.user.id, 'member', now]
+      );
 
-      logActivity(org.id, req.user.id, 'member_joined_by_token', {
+      await logActivity(org.id, req.user.id, 'member_joined_by_token', {
         user_email: req.user.email
       });
     }
@@ -473,39 +474,43 @@ app.post('/api/orgs/join-token', authMiddleware, (req, res) => {
 // ---- Organizations & projects ----
 
 // List orgs current user is in
-app.get('/api/orgs', authMiddleware, (req, res) => {
-  const orgs = db
-    .prepare(
+app.get('/api/orgs', authMiddleware, async (req, res) => {
+  try {
+    const orgs = await db.all(
       `SELECT o.id, o.name, o.created_at, m.role
        FROM organizations o
        JOIN org_members m ON m.org_id = o.id
        WHERE m.user_id = ?
-       ORDER BY o.created_at ASC`
-    )
-    .all(req.user.id);
-  res.json({ organizations: orgs });
+       ORDER BY o.created_at ASC`,
+      [req.user.id]
+    );
+    res.json({ organizations: orgs });
+  } catch (err) {
+    console.error('Error in GET /api/orgs:', err);
+    res.status(500).json({ error: 'Failed to load organizations.' });
+  }
 });
 
-// Create a new org (no token required here; token is only set at admin signup for now)
-app.post('/api/orgs', authMiddleware, (req, res) => {
+// Create a new org
+app.post('/api/orgs', authMiddleware, async (req, res) => {
   const { name } = req.body || {};
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Organization name is required.' });
   }
   const createdAt = nowISO();
   try {
-    const info = db
-      .prepare(
-        'INSERT INTO organizations (name, owner_user_id, created_at) VALUES (?, ?, ?)'
-      )
-      .run(name.trim(), req.user.id, createdAt);
-    const orgId = info.lastInsertRowid;
+    const info = await db.run(
+      'INSERT INTO organizations (name, owner_user_id, created_at) VALUES (?, ?, ?)',
+      [name.trim(), req.user.id, createdAt]
+    );
+    const orgId = info.lastInsertId;
 
-    db.prepare(
-      'INSERT INTO org_members (org_id, user_id, role, invited_at) VALUES (?, ?, ?, ?)'
-    ).run(orgId, req.user.id, 'owner', createdAt);
+    await db.run(
+      'INSERT INTO org_members (org_id, user_id, role, invited_at) VALUES (?, ?, ?, ?)',
+      [orgId, req.user.id, 'owner', createdAt]
+    );
 
-    logActivity(orgId, req.user.id, 'org_created', { name: name.trim() });
+    await logActivity(orgId, req.user.id, 'org_created', { name: name.trim() });
     res
       .status(201)
       .json({ id: orgId, name: name.trim(), created_at: createdAt });
@@ -516,28 +521,33 @@ app.post('/api/orgs', authMiddleware, (req, res) => {
 });
 
 // List projects in an org
-app.get('/api/orgs/:orgId/projects', authMiddleware, (req, res) => {
+app.get('/api/orgs/:orgId/projects', authMiddleware, async (req, res) => {
   const orgId = Number(req.params.orgId);
   if (!orgId) return res.status(400).json({ error: 'Invalid orgId' });
 
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(orgId, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
+  try {
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [orgId, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
+
+    const projects = await db.all(
+      'SELECT * FROM projects WHERE org_id = ? ORDER BY created_at DESC',
+      [orgId]
+    );
+
+    res.json({ projects });
+  } catch (err) {
+    console.error('Error in GET /api/orgs/:orgId/projects:', err);
+    res.status(500).json({ error: 'Failed to load projects.' });
   }
-
-  const projects = db
-    .prepare(
-      'SELECT * FROM projects WHERE org_id = ? ORDER BY created_at DESC'
-    )
-    .all(orgId);
-
-  res.json({ projects });
 });
 
 // Create project in an org
-app.post('/api/orgs/:orgId/projects', authMiddleware, (req, res) => {
+app.post('/api/orgs/:orgId/projects', authMiddleware, async (req, res) => {
   const orgId = Number(req.params.orgId);
   const { name, description } = req.body || {};
   if (!orgId) return res.status(400).json({ error: 'Invalid orgId' });
@@ -545,38 +555,39 @@ app.post('/api/orgs/:orgId/projects', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'Project name is required.' });
   }
 
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(orgId, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
-
-  const createdAt = nowISO();
   try {
-    const info = db
-      .prepare(
-        'INSERT INTO projects (org_id, name, description, status, created_at) VALUES (?, ?, ?, ?, ?)'
-      )
-      .run(orgId, name.trim(), description || '', 'active', createdAt);
-    const projectId = info.lastInsertRowid;
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [orgId, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
 
-    // default columns
+    const createdAt = nowISO();
+    const info = await db.run(
+      'INSERT INTO projects (org_id, name, description, status, created_at) VALUES (?, ?, ?, ?, ?)',
+      [orgId, name.trim(), description || '', 'active', createdAt]
+    );
+    const projectId = info.lastInsertId;
+
     const defaultColumns = ['Backlog', 'In Progress', 'Review', 'Done'];
-    defaultColumns.forEach((colName, index) => {
-      db.prepare(
-        'INSERT INTO project_columns (project_id, name, position, created_at) VALUES (?, ?, ?, ?)'
-      ).run(projectId, colName, index, createdAt);
-    });
+    for (let i = 0; i < defaultColumns.length; i += 1) {
+      const colName = defaultColumns[i];
+      await db.run(
+        'INSERT INTO project_columns (project_id, name, position, created_at) VALUES (?, ?, ?, ?)',
+        [projectId, colName, i, createdAt]
+      );
+    }
 
-    logActivity(orgId, req.user.id, 'project_created', {
+    await logActivity(orgId, req.user.id, 'project_created', {
       project_id: projectId,
       name: name.trim()
     });
 
-    const project = db
-      .prepare('SELECT * FROM projects WHERE id = ?')
-      .get(projectId);
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      projectId
+    ]);
 
     res.status(201).json({ project });
   } catch (err) {
@@ -586,53 +597,54 @@ app.post('/api/orgs/:orgId/projects', authMiddleware, (req, res) => {
 });
 
 // Get full project board (columns + tasks)
-app.get('/api/projects/:projectId/board', authMiddleware, (req, res) => {
+app.get('/api/projects/:projectId/board', authMiddleware, async (req, res) => {
   const projectId = Number(req.params.projectId);
   if (!projectId) {
     return res.status(400).json({ error: 'Invalid projectId' });
   }
 
-  const project = db
-    .prepare('SELECT * FROM projects WHERE id = ?')
-    .get(projectId);
-  if (!project) return res.status(404).json({ error: 'Project not found.' });
+  try {
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      projectId
+    ]);
+    if (!project) return res.status(404).json({ error: 'Project not found.' });
 
-  const member = db
-    .prepare(
-      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?'
-    )
-    .get(project.org_id, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
 
-  const columns = db
-    .prepare(
-      'SELECT * FROM project_columns WHERE project_id = ? ORDER BY position ASC'
-    )
-    .all(projectId);
+    const columns = await db.all(
+      'SELECT * FROM project_columns WHERE project_id = ? ORDER BY position ASC',
+      [projectId]
+    );
 
-  const tasks = db
-    .prepare(
-      'SELECT * FROM tasks WHERE project_id = ? ORDER BY column_id, position ASC'
-    )
-    .all(projectId);
+    const tasks = await db.all(
+      'SELECT * FROM tasks WHERE project_id = ? ORDER BY column_id, position ASC',
+      [projectId]
+    );
 
-  const users = db
-    .prepare(
+    const users = await db.all(
       `SELECT u.id, u.name, u.email
        FROM users u
        JOIN org_members m ON m.user_id = u.id
-       WHERE m.org_id = ?`
-    )
-    .all(project.org_id);
+       WHERE m.org_id = ?`,
+      [project.org_id]
+    );
 
-  res.json({ project, columns, tasks, members: users });
+    res.json({ project, columns, tasks, members: users });
+  } catch (err) {
+    console.error('Error in GET /api/projects/:projectId/board:', err);
+    res.status(500).json({ error: 'Failed to load board.' });
+  }
 });
 
 // ---- Columns ----
 
-app.post('/api/projects/:projectId/columns', authMiddleware, (req, res) => {
+app.post('/api/projects/:projectId/columns', authMiddleware, async (req, res) => {
   const projectId = Number(req.params.projectId);
   const { name } = req.body || {};
   if (!projectId) return res.status(400).json({ error: 'Invalid projectId' });
@@ -640,38 +652,38 @@ app.post('/api/projects/:projectId/columns', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'Column name is required.' });
   }
 
-  const project = db
-    .prepare('SELECT * FROM projects WHERE id = ?')
-    .get(projectId);
-  if (!project) return res.status(404).json({ error: 'Project not found.' });
-
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(project.org_id, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
-
-  const createdAt = nowISO();
-  const maxPosRow = db
-    .prepare(
-      'SELECT MAX(position) AS max_pos FROM project_columns WHERE project_id = ?'
-    )
-    .get(projectId);
-  const position = (maxPosRow.max_pos || 0) + 1;
-
   try {
-    const info = db
-      .prepare(
-        'INSERT INTO project_columns (project_id, name, position, created_at) VALUES (?, ?, ?, ?)'
-      )
-      .run(projectId, name.trim(), position, createdAt);
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      projectId
+    ]);
+    if (!project) return res.status(404).json({ error: 'Project not found.' });
 
-    const column = db
-      .prepare('SELECT * FROM project_columns WHERE id = ?')
-      .get(info.lastInsertRowid);
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
 
-    logActivity(project.org_id, req.user.id, 'column_created', {
+    const createdAt = nowISO();
+    const maxPosRow = await db.get(
+      'SELECT MAX(position) AS max_pos FROM project_columns WHERE project_id = ?',
+      [projectId]
+    );
+    const position = ((maxPosRow && maxPosRow.max_pos) || 0) + 1;
+
+    const info = await db.run(
+      'INSERT INTO project_columns (project_id, name, position, created_at) VALUES (?, ?, ?, ?)',
+      [projectId, name.trim(), position, createdAt]
+    );
+
+    const column = await db.get(
+      'SELECT * FROM project_columns WHERE id = ?',
+      [info.lastInsertId]
+    );
+
+    await logActivity(project.org_id, req.user.id, 'column_created', {
       project_id: projectId,
       column_id: column.id,
       name: column.name
@@ -687,7 +699,7 @@ app.post('/api/projects/:projectId/columns', authMiddleware, (req, res) => {
 // ---- Tasks ----
 
 // Create task
-app.post('/api/projects/:projectId/tasks', authMiddleware, (req, res) => {
+app.post('/api/projects/:projectId/tasks', authMiddleware, async (req, res) => {
   const projectId = Number(req.params.projectId);
   const {
     title,
@@ -706,43 +718,40 @@ app.post('/api/projects/:projectId/tasks', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'column_id is required.' });
   }
 
-  const project = db
-    .prepare('SELECT * FROM projects WHERE id = ?')
-    .get(projectId);
-  if (!project) return res.status(404).json({ error: 'Project not found.' });
-
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(project.org_id, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
-
-  const column = db
-    .prepare(
-      'SELECT * FROM project_columns WHERE id = ? AND project_id = ?'
-    )
-    .get(column_id, projectId);
-  if (!column) {
-    return res.status(400).json({ error: 'Column not found in this project.' });
-  }
-
-  const createdAt = nowISO();
-  const maxPosRow = db
-    .prepare(
-      'SELECT MAX(position) AS max_pos FROM tasks WHERE column_id = ?'
-    )
-    .get(column_id);
-  const position = (maxPosRow.max_pos || 0) + 1;
-
   try {
-    const info = db
-      .prepare(
-        `INSERT INTO tasks
-         (project_id, column_id, title, description, priority, position, due_date, assigned_to, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      projectId
+    ]);
+    if (!project) return res.status(404).json({ error: 'Project not found.' });
+
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
+
+    const column = await db.get(
+      'SELECT * FROM project_columns WHERE id = ? AND project_id = ?',
+      [column_id, projectId]
+    );
+    if (!column) {
+      return res.status(400).json({ error: 'Column not found in this project.' });
+    }
+
+    const createdAt = nowISO();
+    const maxPosRow = await db.get(
+      'SELECT MAX(position) AS max_pos FROM tasks WHERE column_id = ?',
+      [column_id]
+    );
+    const position = ((maxPosRow && maxPosRow.max_pos) || 0) + 1;
+
+    const info = await db.run(
+      `INSERT INTO tasks
+       (project_id, column_id, title, description, priority, position, due_date, assigned_to, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
         projectId,
         column_id,
         title.trim(),
@@ -752,13 +761,14 @@ app.post('/api/projects/:projectId/tasks', authMiddleware, (req, res) => {
         due_date || null,
         assigned_to || null,
         createdAt
-      );
+      ]
+    );
 
-    const task = db
-      .prepare('SELECT * FROM tasks WHERE id = ?')
-      .get(info.lastInsertRowid);
+    const task = await db.get('SELECT * FROM tasks WHERE id = ?', [
+      info.lastInsertId
+    ]);
 
-    logActivity(project.org_id, req.user.id, 'task_created', {
+    await logActivity(project.org_id, req.user.id, 'task_created', {
       project_id: projectId,
       task_id: task.id,
       title: task.title
@@ -772,7 +782,7 @@ app.post('/api/projects/:projectId/tasks', authMiddleware, (req, res) => {
 });
 
 // Update task
-app.put('/api/tasks/:taskId', authMiddleware, (req, res) => {
+app.put('/api/tasks/:taskId', authMiddleware, async (req, res) => {
   const taskId = Number(req.params.taskId);
   if (!taskId) return res.status(400).json({ error: 'Invalid taskId' });
 
@@ -784,45 +794,47 @@ app.put('/api/tasks/:taskId', authMiddleware, (req, res) => {
     assigned_to
   } = req.body || {};
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
-  if (!task) return res.status(404).json({ error: 'Task not found.' });
-
-  const project = db
-    .prepare('SELECT * FROM projects WHERE id = ?')
-    .get(task.project_id);
-
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(project.org_id, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
-
-  const updated = {
-    title: title ?? task.title,
-    description: description ?? task.description,
-    priority: priority ?? task.priority,
-    due_date: due_date ?? task.due_date,
-    assigned_to: assigned_to ?? task.assigned_to
-  };
-
   try {
-    db.prepare(
+    const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      task.project_id
+    ]);
+
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
+
+    const updated = {
+      title: title ?? task.title,
+      description: description ?? task.description,
+      priority: priority ?? task.priority,
+      due_date: due_date ?? task.due_date,
+      assigned_to: assigned_to ?? task.assigned_to
+    };
+
+    await db.run(
       `UPDATE tasks
        SET title = ?, description = ?, priority = ?, due_date = ?, assigned_to = ?
-       WHERE id = ?`
-    ).run(
-      updated.title,
-      updated.description,
-      updated.priority,
-      updated.due_date,
-      updated.assigned_to,
-      taskId
+       WHERE id = ?`,
+      [
+        updated.title,
+        updated.description,
+        updated.priority,
+        updated.due_date,
+        updated.assigned_to,
+        taskId
+      ]
     );
 
-    const saved = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+    const saved = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
 
-    logActivity(project.org_id, req.user.id, 'task_updated', {
+    await logActivity(project.org_id, req.user.id, 'task_updated', {
       project_id: project.id,
       task_id: taskId
     });
@@ -835,70 +847,72 @@ app.put('/api/tasks/:taskId', authMiddleware, (req, res) => {
 });
 
 // Move task (drag & drop)
-app.patch('/api/tasks/:taskId/move', authMiddleware, (req, res) => {
+app.patch('/api/tasks/:taskId/move', authMiddleware, async (req, res) => {
   const taskId = Number(req.params.taskId);
   const { to_column_id, to_position } = req.body || {};
   if (!taskId || !to_column_id) {
     return res.status(400).json({ error: 'taskId and to_column_id required.' });
   }
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
-  if (!task) return res.status(404).json({ error: 'Task not found.' });
-
-  const project = db
-    .prepare('SELECT * FROM projects WHERE id = ?')
-    .get(task.project_id);
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(project.org_id, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
-
-  const targetColumn = db
-    .prepare(
-      'SELECT * FROM project_columns WHERE id = ? AND project_id = ?'
-    )
-    .get(to_column_id, project.id);
-  if (!targetColumn) {
-    return res.status(400).json({ error: 'Target column not found.' });
-  }
-
   try {
+    const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      task.project_id
+    ]);
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
+
+    const targetColumn = await db.get(
+      'SELECT * FROM project_columns WHERE id = ? AND project_id = ?',
+      [to_column_id, project.id]
+    );
+    if (!targetColumn) {
+      return res.status(400).json({ error: 'Target column not found.' });
+    }
+
     // Adjust positions in source column
-    db.prepare(
+    await db.run(
       `UPDATE tasks
        SET position = position - 1
-       WHERE column_id = ? AND position > ?`
-    ).run(task.column_id, task.position);
+       WHERE column_id = ? AND position > ?`,
+      [task.column_id, task.position]
+    );
 
-    const maxPosRow = db
-      .prepare(
-        'SELECT MAX(position) AS max_pos FROM tasks WHERE column_id = ?'
-      )
-      .get(to_column_id);
-    const maxPos = maxPosRow.max_pos || 0;
+    const maxPosRow = await db.get(
+      'SELECT MAX(position) AS max_pos FROM tasks WHERE column_id = ?',
+      [to_column_id]
+    );
+    const maxPos = (maxPosRow && maxPosRow.max_pos) || 0;
 
     let newPos = Number(to_position);
     if (!newPos || newPos < 1 || newPos > maxPos + 1) {
       newPos = maxPos + 1;
     }
 
-    db.prepare(
+    await db.run(
       `UPDATE tasks
        SET position = position + 1
-       WHERE column_id = ? AND position >= ?`
-    ).run(to_column_id, newPos);
+       WHERE column_id = ? AND position >= ?`,
+      [to_column_id, newPos]
+    );
 
-    db.prepare(
+    await db.run(
       `UPDATE tasks
        SET column_id = ?, position = ?
-       WHERE id = ?`
-    ).run(to_column_id, newPos, taskId);
+       WHERE id = ?`,
+      [to_column_id, newPos, taskId]
+    );
 
-    const saved = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+    const saved = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
 
-    logActivity(project.org_id, req.user.id, 'task_moved', {
+    await logActivity(project.org_id, req.user.id, 'task_moved', {
       project_id: project.id,
       task_id: taskId,
       from_column_id: task.column_id,
@@ -914,34 +928,36 @@ app.patch('/api/tasks/:taskId/move', authMiddleware, (req, res) => {
 });
 
 // Delete task
-app.delete('/api/tasks/:taskId', authMiddleware, (req, res) => {
+app.delete('/api/tasks/:taskId', authMiddleware, async (req, res) => {
   const taskId = Number(req.params.taskId);
   if (!taskId) return res.status(400).json({ error: 'Invalid taskId' });
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
-  if (!task) return res.status(404).json({ error: 'Task not found.' });
-
-  const project = db
-    .prepare('SELECT * FROM projects WHERE id = ?')
-    .get(task.project_id);
-
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(project.org_id, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
-
   try {
-    db.prepare(
+    const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      task.project_id
+    ]);
+
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
+
+    await db.run(
       `UPDATE tasks
        SET position = position - 1
-       WHERE column_id = ? AND position > ?`
-    ).run(task.column_id, task.position);
+       WHERE column_id = ? AND position > ?`,
+      [task.column_id, task.position]
+    );
 
-    db.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
+    await db.run('DELETE FROM tasks WHERE id = ?', [taskId]);
 
-    logActivity(project.org_id, req.user.id, 'task_deleted', {
+    await logActivity(project.org_id, req.user.id, 'task_deleted', {
       project_id: project.id,
       task_id: taskId
     });
@@ -954,37 +970,42 @@ app.delete('/api/tasks/:taskId', authMiddleware, (req, res) => {
 });
 
 // ---- Comments ----
-app.get('/api/tasks/:taskId/comments', authMiddleware, (req, res) => {
+app.get('/api/tasks/:taskId/comments', authMiddleware, async (req, res) => {
   const taskId = Number(req.params.taskId);
   if (!taskId) return res.status(400).json({ error: 'Invalid taskId' });
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
-  if (!task) return res.status(404).json({ error: 'Task not found.' });
+  try {
+    const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
 
-  const project = db
-    .prepare('SELECT * FROM projects WHERE id = ?')
-    .get(task.project_id);
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(project.org_id, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      task.project_id
+    ]);
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
 
-  const comments = db
-    .prepare(
+    const comments = await db.all(
       `SELECT c.*, u.name AS author_name
        FROM comments c
        JOIN users u ON u.id = c.user_id
        WHERE c.task_id = ?
-       ORDER BY c.created_at ASC`
-    )
-    .all(taskId);
+       ORDER BY c.created_at ASC`,
+      [taskId]
+    );
 
-  res.json({ comments });
+    res.json({ comments });
+  } catch (err) {
+    console.error('Error in GET /api/tasks/:taskId/comments:', err);
+    res.status(500).json({ error: 'Failed to load comments.' });
+  }
 });
 
-app.post('/api/tasks/:taskId/comments', authMiddleware, (req, res) => {
+app.post('/api/tasks/:taskId/comments', authMiddleware, async (req, res) => {
   const taskId = Number(req.params.taskId);
   const { body } = req.body || {};
   if (!taskId) return res.status(400).json({ error: 'Invalid taskId' });
@@ -992,38 +1013,36 @@ app.post('/api/tasks/:taskId/comments', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'Comment body is required.' });
   }
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
-  if (!task) return res.status(404).json({ error: 'Task not found.' });
-
-  const project = db
-    .prepare('SELECT * FROM projects WHERE id = ?')
-    .get(task.project_id);
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(project.org_id, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
-
-  const createdAt = nowISO();
   try {
-    const info = db
-      .prepare(
-        'INSERT INTO comments (task_id, user_id, body, created_at) VALUES (?, ?, ?, ?)'
-      )
-      .run(taskId, req.user.id, body.trim(), createdAt);
+    const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
 
-    const comment = db
-      .prepare(
-        `SELECT c.*, u.name AS author_name
-         FROM comments c
-         JOIN users u ON u.id = c.user_id
-         WHERE c.id = ?`
-      )
-      .get(info.lastInsertRowid);
-    
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      task.project_id
+    ]);
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
 
-    logActivity(project.org_id, req.user.id, 'comment_added', {
+    const createdAt = nowISO();
+    const info = await db.run(
+      'INSERT INTO comments (task_id, user_id, body, created_at) VALUES (?, ?, ?, ?)',
+      [taskId, req.user.id, body.trim(), createdAt]
+    );
+
+    const comment = await db.get(
+      `SELECT c.*, u.name AS author_name
+       FROM comments c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.id = ?`,
+      [info.lastInsertId]
+    );
+
+    await logActivity(project.org_id, req.user.id, 'comment_added', {
       project_id: project.id,
       task_id: taskId,
       comment_id: comment.id
@@ -1041,47 +1060,48 @@ app.post(
   '/api/tasks/:taskId/attachments',
   authMiddleware,
   upload.single('file'),
-  (req, res) => {
+  async (req, res) => {
     const taskId = Number(req.params.taskId);
     if (!taskId) return res.status(400).json({ error: 'Invalid taskId' });
 
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded.' });
 
-    const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
-    if (!task) return res.status(404).json({ error: 'Task not found.' });
-
-    const project = db
-      .prepare('SELECT * FROM projects WHERE id = ?')
-      .get(task.project_id);
-    const member = db
-      .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-      .get(project.org_id, req.user.id);
-    if (!member) {
-      return res.status(403).json({ error: 'Not a member of this org.' });
-    }
-
-    const createdAt = nowISO();
     try {
-      const info = db
-        .prepare(
-          `INSERT INTO attachments (task_id, filename, original_name, mime_type, size, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`
-        )
-        .run(
+      const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+      if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+      const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+        task.project_id
+      ]);
+      const member = await db.get(
+        'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+        [project.org_id, req.user.id]
+      );
+      if (!member) {
+        return res.status(403).json({ error: 'Not a member of this org.' });
+      }
+
+      const createdAt = nowISO();
+      const info = await db.run(
+        `INSERT INTO attachments (task_id, filename, original_name, mime_type, size, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
           taskId,
           file.filename,
           file.originalname,
           file.mimetype,
           file.size,
           createdAt
-        );
+        ]
+      );
 
-      const attachment = db
-        .prepare('SELECT * FROM attachments WHERE id = ?')
-        .get(info.lastInsertRowid);
+      const attachment = await db.get(
+        'SELECT * FROM attachments WHERE id = ?',
+        [info.lastInsertId]
+      );
 
-      logActivity(project.org_id, req.user.id, 'attachment_added', {
+      await logActivity(project.org_id, req.user.id, 'attachment_added', {
         project_id: project.id,
         task_id: taskId,
         attachment_id: attachment.id
@@ -1099,119 +1119,122 @@ app.post(
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 // ---- BI summary (XYMZ.BI) ----
-app.get('/api/orgs/:orgId/bi-summary', authMiddleware, (req, res) => {
+app.get('/api/orgs/:orgId/bi-summary', authMiddleware, async (req, res) => {
   const orgId = Number(req.params.orgId);
   if (!orgId) return res.status(400).json({ error: 'Invalid orgId' });
 
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(orgId, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
-
-  const projects = db
-    .prepare(
-      'SELECT id, name FROM projects WHERE org_id = ? ORDER BY created_at DESC'
-    )
-    .all(orgId);
-
-  if (!projects.length) {
-    return res.json({ projects: [] });
-  }
-
-  const today = new Date();
-
-  const taskStmt = db.prepare(
-    `SELECT t.*, u.name AS assignee_name
-     FROM tasks t
-     LEFT JOIN users u ON u.id = t.assigned_to
-     WHERE t.project_id = ?`
-  );
-
-  const columnStmt = db.prepare(
-    `SELECT id, name
-     FROM project_columns
-     WHERE project_id = ?`
-  );
-
-  const results = projects.map((proj) => {
-    const columns = columnStmt.all(proj.id);
-    const columnById = {};
-    columns.forEach((c) => {
-      columnById[c.id] = c;
-    });
-
-    const tasks = taskStmt.all(proj.id);
-
-    const counts = { in_progress: 0, review: 0, complete: 0 };
-    const assigneesSet = new Set();
-    let soonestDue = null;
-
-    tasks.forEach((t) => {
-      const col = columnById[t.column_id];
-      const colName = (col ? col.name : '').toLowerCase();
-
-      if (colName.includes('progress')) counts.in_progress += 1;
-      else if (colName.includes('review')) counts.review += 1;
-      else if (colName.includes('done') || colName.includes('complete')) {
-        counts.complete += 1;
-      }
-
-      if (t.assigned_to && t.assignee_name) {
-        assigneesSet.add(t.assignee_name);
-      }
-
-      if (t.due_date) {
-        const due = new Date(t.due_date);
-        if (!Number.isNaN(due.getTime())) {
-          const diffMs = due - today;
-          if (diffMs > 0 && (!soonestDue || due < soonestDue)) {
-            soonestDue = due;
-          }
-        }
-      }
-    });
-
-    let daysLeft = null;
-    if (soonestDue) {
-      const diffMs = soonestDue - today;
-      daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  try {
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [orgId, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
     }
 
-    return {
-      project_id: proj.id,
-      project_name: proj.name,
-      in_progress: counts.in_progress,
-      review: counts.review,
-      complete: counts.complete,
-      assignees: Array.from(assigneesSet),
-      days_left: daysLeft
-    };
-  });
+    const projects = await db.all(
+      'SELECT id, name FROM projects WHERE org_id = ? ORDER BY created_at DESC',
+      [orgId]
+    );
 
-  res.json({ projects: results });
+    if (!projects.length) {
+      return res.json({ projects: [] });
+    }
+
+    const today = new Date();
+    const results = [];
+
+    for (const proj of projects) {
+      const columns = await db.all(
+        'SELECT id, name FROM project_columns WHERE project_id = ?',
+        [proj.id]
+      );
+      const columnById = {};
+      columns.forEach((c) => {
+        columnById[c.id] = c;
+      });
+
+      const tasks = await db.all(
+        `SELECT t.*, u.name AS assignee_name
+         FROM tasks t
+         LEFT JOIN users u ON u.id = t.assigned_to
+         WHERE t.project_id = ?`,
+        [proj.id]
+      );
+
+      const counts = { in_progress: 0, review: 0, complete: 0 };
+      const assigneesSet = new Set();
+      let soonestDue = null;
+
+      tasks.forEach((t) => {
+        const col = columnById[t.column_id];
+        const colName = (col ? col.name : '').toLowerCase();
+
+        if (colName.includes('progress')) counts.in_progress += 1;
+        else if (colName.includes('review')) counts.review += 1;
+        else if (colName.includes('done') || colName.includes('complete')) {
+          counts.complete += 1;
+        }
+
+        if (t.assigned_to && t.assignee_name) {
+          assigneesSet.add(t.assignee_name);
+        }
+
+        if (t.due_date) {
+          const due = new Date(t.due_date);
+          if (!Number.isNaN(due.getTime())) {
+            const diffMs = due - today;
+            if (diffMs > 0 && (!soonestDue || due < soonestDue)) {
+              soonestDue = due;
+            }
+          }
+        }
+      });
+
+      let daysLeft = null;
+      if (soonestDue) {
+        const diffMs = soonestDue - today;
+        daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      }
+
+      results.push({
+        project_id: proj.id,
+        project_name: proj.name,
+        in_progress: counts.in_progress,
+        review: counts.review,
+        complete: counts.complete,
+        assignees: Array.from(assigneesSet),
+        days_left: daysLeft
+      });
+    }
+
+    res.json({ projects: results });
+  } catch (err) {
+    console.error('Error in GET /api/orgs/:orgId/bi-summary:', err);
+    res.status(500).json({ error: 'Failed to load BI summary.' });
+  }
 });
 
 // ---- BI: Tasks inside a single project (for drilldown) ----
-app.get('/api/projects/:projectId/bi-tasks', authMiddleware, (req, res) => {
+app.get('/api/projects/:projectId/bi-tasks', authMiddleware, async (req, res) => {
   const projectId = Number(req.params.projectId);
   if (!projectId) return res.status(400).json({ error: 'Invalid projectId' });
 
-  const project = db
-    .prepare('SELECT * FROM projects WHERE id = ?')
-    .get(projectId);
-  if (!project) return res.status(404).json({ error: 'Project not found.' });
+  try {
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      projectId
+    ]);
+    if (!project) return res.status(404).json({ error: 'Project not found.' });
 
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(project.org_id, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
 
-  const tasks = db
-    .prepare(
+    const tasks = await db.all(
       `SELECT 
          t.id AS task_id,
          t.title,
@@ -1221,75 +1244,85 @@ app.get('/api/projects/:projectId/bi-tasks', authMiddleware, (req, res) => {
        FROM tasks t
        LEFT JOIN users u ON u.id = t.assigned_to
        WHERE t.project_id = ?
-       ORDER BY t.created_at ASC`
-    )
-    .all(projectId);
+       ORDER BY t.created_at ASC`,
+      [projectId]
+    );
 
-  const today = new Date();
+    const today = new Date();
 
-  const formatted = tasks.map((t) => {
-    let daysLeft = null;
-    if (t.due_date) {
-      const due = new Date(t.due_date);
-      if (!Number.isNaN(due.getTime())) {
-        const diff = Math.ceil(
-          (due - today) / (1000 * 60 * 60 * 24)
-        );
-        daysLeft = diff;
+    const formatted = tasks.map((t) => {
+      let daysLeft = null;
+      if (t.due_date) {
+        const due = new Date(t.due_date);
+        if (!Number.isNaN(due.getTime())) {
+          const diff = Math.ceil(
+            (due - today) / (1000 * 60 * 60 * 24)
+          );
+          daysLeft = diff;
+        }
       }
-    }
-    return {
-      task_id: t.task_id,
-      title: t.title,
-      priority: t.priority,
-      assigned_to: t.assignee_name || null,
-      days_left: daysLeft
-    };
-  });
+      return {
+        task_id: t.task_id,
+        title: t.title,
+        priority: t.priority,
+        assigned_to: t.assignee_name || null,
+        days_left: daysLeft
+      };
+    });
 
-  res.json({ project_id: projectId, tasks: formatted });
+    res.json({ project_id: projectId, tasks: formatted });
+  } catch (err) {
+    console.error('Error in GET /api/projects/:projectId/bi-tasks:', err);
+    res.status(500).json({ error: 'Failed to load BI tasks.' });
+  }
 });
 
 // ---- Activity feed ----
-app.get('/api/orgs/:orgId/activity', authMiddleware, (req, res) => {
+app.get('/api/orgs/:orgId/activity', authMiddleware, async (req, res) => {
   const orgId = Number(req.params.orgId);
   if (!orgId) return res.status(400).json({ error: 'Invalid orgId' });
 
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(orgId, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
+  try {
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [orgId, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
 
-  const activities = db
-    .prepare(
+    const activities = await db.all(
       `SELECT a.*, u.name AS actor_name
        FROM activity_log a
        LEFT JOIN users u ON u.id = a.user_id
        WHERE a.org_id = ?
        ORDER BY a.created_at DESC
-       LIMIT 30`
-    )
-    .all(orgId);
+       LIMIT 30`,
+      [orgId]
+    );
 
-  res.json({ activities });
+    res.json({ activities });
+  } catch (err) {
+    console.error('Error in GET /api/orgs/:orgId/activity:', err);
+    res.status(500).json({ error: 'Failed to load activity.' });
+  }
 });
 
 // ---- XYMZ.Fleet: org member directory ----
-app.get('/api/orgs/:orgId/fleet', authMiddleware, (req, res) => {
+app.get('/api/orgs/:orgId/fleet', authMiddleware, async (req, res) => {
   const orgId = Number(req.params.orgId);
   if (!orgId) return res.status(400).json({ error: 'Invalid orgId' });
 
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(orgId, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
+  try {
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [orgId, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
 
-  const fleet = db
-    .prepare(
+    const fleet = await db.all(
       `SELECT 
          u.id,
          u.name,
@@ -1305,166 +1338,183 @@ app.get('/api/orgs/:orgId/fleet', authMiddleware, (req, res) => {
            WHEN 'admin' THEN 1 
            ELSE 2 
          END,
-         u.name COLLATE NOCASE ASC`
-    )
-    .all(orgId);
+         u.name ASC`,
+      [orgId]
+    );
 
-  res.json({ fleet });
+    res.json({ fleet });
+  } catch (err) {
+    console.error('Error in GET /api/orgs/:orgId/fleet:', err);
+    res.status(500).json({ error: 'Failed to load fleet.' });
+  }
 });
 
 // ---- XYMZ.Radar: org health snapshot ----
-app.get('/api/orgs/:orgId/radar', authMiddleware, (req, res) => {
+app.get('/api/orgs/:orgId/radar', authMiddleware, async (req, res) => {
   const orgId = Number(req.params.orgId);
   if (!orgId) return res.status(400).json({ error: 'Invalid orgId' });
 
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(orgId, req.user.id);
-  if (!member) {
-    return res.status(403).json({ error: 'Not a member of this org.' });
-  }
+  try {
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [orgId, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
 
-  // Projects
-  const projects = db
-    .prepare('SELECT id, name, status, created_at FROM projects WHERE org_id = ?')
-    .all(orgId);
+    // Projects
+    const projects = await db.all(
+      'SELECT id, name, status, created_at FROM projects WHERE org_id = ?',
+      [orgId]
+    );
 
-  const totalProjects = projects.length;
-  const activeProjects = projects.filter((p) =>
-    (p.status || '').toLowerCase() === 'active'
-  ).length;
+    const totalProjects = projects.length;
+    const activeProjects = projects.filter((p) =>
+      (p.status || '').toLowerCase() === 'active'
+    ).length;
 
-  // Tasks + status from columns
-  const tasks = db
-    .prepare(
+    // Tasks + status from columns
+    const tasks = await db.all(
       `SELECT 
          t.*,
          c.name AS column_name
        FROM tasks t
        JOIN project_columns c ON c.id = t.column_id
        JOIN projects p ON p.id = t.project_id
-       WHERE p.org_id = ?`
-    )
-    .all(orgId);
+       WHERE p.org_id = ?`,
+      [orgId]
+    );
 
-  const totalTasks = tasks.length;
+    const totalTasks = tasks.length;
 
-  let inProgress = 0;
-  let review = 0;
-  let complete = 0;
+    let inProgress = 0;
+    let review = 0;
+    let complete = 0;
 
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const startOfTomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    const today = new Date();
+    const startOfToday = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+    const startOfTomorrow = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1
+    );
 
-  let dueToday = 0;
-  let dueSoon = 0;    // next 7 days
-  let overdue = 0;
+    let dueToday = 0;
+    let dueSoon = 0; // next 7 days
+    let overdue = 0;
 
-  tasks.forEach((t) => {
-    const colName = (t.column_name || '').toLowerCase();
-    if (colName.includes('progress')) inProgress += 1;
-    else if (colName.includes('review')) review += 1;
-    else if (colName.includes('done') || colName.includes('complete')) complete += 1;
+    tasks.forEach((t) => {
+      const colName = (t.column_name || '').toLowerCase();
+      if (colName.includes('progress')) inProgress += 1;
+      else if (colName.includes('review')) review += 1;
+      else if (colName.includes('done') || colName.includes('complete'))
+        complete += 1;
 
-    if (t.due_date) {
-      const due = new Date(t.due_date);
-      if (!Number.isNaN(due.getTime())) {
-        if (due >= startOfToday && due < startOfTomorrow) {
-          dueToday += 1;
-        } else if (due < startOfToday) {
-          overdue += 1;
-        } else {
-          const diffDays = Math.ceil(
-            (due - startOfToday) / (1000 * 60 * 60 * 24)
-          );
-          if (diffDays > 1 && diffDays <= 7) {
-            dueSoon += 1;
+      if (t.due_date) {
+        const due = new Date(t.due_date);
+        if (!Number.isNaN(due.getTime())) {
+          if (due >= startOfToday && due < startOfTomorrow) {
+            dueToday += 1;
+          } else if (due < startOfToday) {
+            overdue += 1;
+          } else {
+            const diffDays = Math.ceil(
+              (due - startOfToday) / (1000 * 60 * 60 * 24)
+            );
+            if (diffDays > 1 && diffDays <= 7) {
+              dueSoon += 1;
+            }
           }
         }
       }
-    }
-  });
+    });
 
-  // Members count
-  const memberCountsRow = db
-    .prepare(
+    // Members count
+    const memberCountsRow = await db.get(
       `SELECT 
          COUNT(*) AS total_members,
          SUM(CASE WHEN role = 'owner' THEN 1 ELSE 0 END) AS owners,
          SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) AS admins
        FROM org_members
-       WHERE org_id = ?`
-    )
-    .get(orgId);
+       WHERE org_id = ?`,
+      [orgId]
+    );
 
-  const totalMembers = memberCountsRow.total_members || 0;
-  const owners = memberCountsRow.owners || 0;
-  const admins = memberCountsRow.admins || 0;
+    const totalMembers = memberCountsRow.total_members || 0;
+    const owners = memberCountsRow.owners || 0;
+    const admins = memberCountsRow.admins || 0;
 
-  // Most recent activity timestamp
-  const lastActivityRow = db
-    .prepare(
-      'SELECT created_at FROM activity_log WHERE org_id = ? ORDER BY created_at DESC LIMIT 1'
-    )
-    .get(orgId);
-  const lastActivityAt = lastActivityRow ? lastActivityRow.created_at : null;
+    // Most recent activity timestamp
+    const lastActivityRow = await db.get(
+      'SELECT created_at FROM activity_log WHERE org_id = ? ORDER BY created_at DESC LIMIT 1',
+      [orgId]
+    );
+    const lastActivityAt = lastActivityRow ? lastActivityRow.created_at : null;
 
-  res.json({
-    org_id: orgId,
-    projects: {
-      total: totalProjects,
-      active: activeProjects
-    },
-    tasks: {
-      total: totalTasks,
-      in_progress: inProgress,
-      review,
-      complete
-    },
-    due_dates: {
-      today: dueToday,
-      soon: dueSoon,
-      overdue
-    },
-    members: {
-      total: totalMembers,
-      owners,
-      admins
-    },
-    last_activity_at: lastActivityAt
-  });
+    res.json({
+      org_id: orgId,
+      projects: {
+        total: totalProjects,
+        active: activeProjects
+      },
+      tasks: {
+        total: totalTasks,
+        in_progress: inProgress,
+        review,
+        complete
+      },
+      due_dates: {
+        today: dueToday,
+        soon: dueSoon,
+        overdue
+      },
+      members: {
+        total: totalMembers,
+        owners,
+        admins
+      },
+      last_activity_at: lastActivityAt
+    });
+  } catch (err) {
+    console.error('Error in GET /api/orgs/:orgId/radar:', err);
+    res.status(500).json({ error: 'Failed to load radar snapshot.' });
+  }
 });
 
-// ---- DELETE PROJECT (with cascade behavior handled by DB) ----
-app.delete('/api/projects/:projectId', authMiddleware, (req, res) => {
+// ---- DELETE PROJECT ----
+app.delete('/api/projects/:projectId', authMiddleware, async (req, res) => {
   const projectId = Number(req.params.projectId);
   if (!projectId) {
     return res.status(400).json({ error: 'Invalid projectId' });
   }
 
-  const project = db
-    .prepare('SELECT * FROM projects WHERE id = ?')
-    .get(projectId);
-
-  if (!project) {
-    return res.status(404).json({ error: 'Project not found.' });
-  }
-
-  const member = db
-    .prepare('SELECT * FROM org_members WHERE org_id = ? AND user_id = ?')
-    .get(project.org_id, req.user.id);
-
-  if (!member) {
-    return res
-      .status(403)
-      .json({ error: 'You are not a member of this organization.' });
-  }
-
   try {
-    db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      projectId
+    ]);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found.' });
+    }
 
-    logActivity(project.org_id, req.user.id, 'project_deleted', {
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+
+    if (!member) {
+      return res
+        .status(403)
+        .json({ error: 'You are not a member of this organization.' });
+    }
+
+    await db.run('DELETE FROM projects WHERE id = ?', [projectId]);
+
+    await logActivity(project.org_id, req.user.id, 'project_deleted', {
       project_id: projectId,
       project_name: project.name
     });
@@ -1492,7 +1542,6 @@ app.get('*', (req, res) => {
   }
   res.sendFile(path.join(FRONTEND_PATH, 'index.html'));
 });
-
 
 app.listen(PORT, () => {
   console.log(`XYMZ backend running at http://localhost:${PORT}`);
