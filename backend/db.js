@@ -9,10 +9,10 @@ dotenv.config();
 
 // Create a connection pool to your local MySQL instance
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || '127.0.0.1',
+  host: process.env.DB_HOST || 'taskdesk.cr24a6a4cotv.us-east-2.rds.amazonaws.com',
   port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'Waseem:):p1',
+  user: process.env.DB_USER || 'admin',
+  password: process.env.DB_PASSWORD || 'Password1231234',
   database: process.env.DB_NAME || 'taskdesk',
   waitForConnections: true,
   connectionLimit: 10,
