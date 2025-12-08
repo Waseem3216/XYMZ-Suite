@@ -95,6 +95,12 @@ const detailCommentsList = document.getElementById('detail-comments');
 const detailCommentForm = document.getElementById('detail-comment-form');
 const detailCommentBody = document.getElementById('detail-comment-body');
 
+// Attachments
+const detailAttachmentsList = document.getElementById('detail-attachments');
+const detailAttachmentForm = document.getElementById('detail-attachment-form');
+const detailAttachmentFile = document.getElementById('detail-attachment-file');
+const detailAttachmentStatus = document.getElementById('detail-attachment-status');
+
 // Suite navigation tabs
 const suiteTabs = document.querySelectorAll('.suite-tab');
 const suiteView = document.getElementById('suite-view');
@@ -1208,7 +1214,6 @@ async function loadBiTaskDrilldown(projectId, projectName) {
     if (!res.ok) throw new Error(data.error || 'Failed to load project tasks');
 
     const tasks = data.tasks || [];
-    const members = data.members || [];
 
     const labels = tasks.map((t) => t.title);
     const daysLeft = tasks.map((t) => {
@@ -1241,7 +1246,8 @@ async function loadBiTaskDrilldown(projectId, projectName) {
               afterBody(c) {
                 const t = tasks[c[0].dataIndex];
                 const member =
-                  members.find((m) => m.id === t.assigned_to) || null;
+                  boardState.members.find((m) => m.id === t.assigned_to) ||
+                  null;
                 return [
                   `Due: ${t.due_date ?? 'N/A'}`,
                   `Priority: ${t.priority}`,
@@ -1430,7 +1436,7 @@ async function loadRadarSnapshot() {
                 projectName: p.project_name,
                 projectId: p.project_id,
                 taskTitle: t.title,
-                taskId: t.id,
+                taskId: t.task_id || t.id,
                 daysLeft: t.days_left
               });
             }
@@ -1860,6 +1866,9 @@ function renderTaskDetail(taskId) {
   detailStatus.textContent = '';
 
   loadComments(taskId);
+  if (detailAttachmentsList) {
+    loadAttachments(taskId);
+  }
 }
 
 btnCloseDetail.onclick = () => renderTaskDetail(null);
@@ -1988,6 +1997,116 @@ if (btnDeleteProject) {
 }
 
 /* ============================================================
+   ATTACHMENTS
+   ============================================================ */
+
+async function loadAttachments(taskId) {
+  if (!detailAttachmentsList) return;
+
+  detailAttachmentsList.innerHTML = '';
+
+  if (!taskId) return;
+
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/tasks/${taskId}/attachments`,
+      { headers: authHeaders() }
+    );
+
+    const data = await safeJson(res);
+    if (!res.ok) throw new Error(data.error || 'Failed to load attachments');
+
+    const attachments = data.attachments || [];
+
+    if (!attachments.length) {
+      const li = document.createElement('li');
+      li.textContent = 'No attachments yet.';
+      detailAttachmentsList.appendChild(li);
+      return;
+    }
+
+    attachments.forEach((a) => {
+      const li = document.createElement('li');
+      li.classList.add('attachment-item');
+
+      const urlPath =
+        a.url || (a.filename ? `/uploads/${a.filename}` : '#');
+
+      const link = document.createElement('a');
+      link.href = `${API_BASE_URL}${urlPath}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = a.original_name || a.filename || 'Download';
+
+      const metaSpan = document.createElement('span');
+      metaSpan.classList.add('attachment-meta');
+      const sizeKb = a.size ? `${Math.round(a.size / 1024)} KB` : '';
+      const ts = a.created_at
+        ? new Date(a.created_at).toLocaleString()
+        : '';
+      metaSpan.textContent = [
+        sizeKb && `(${sizeKb})`,
+        ts && ` • ${ts}`
+      ].filter(Boolean).join('');
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.classList.add('attachment-delete-btn');
+
+      deleteBtn.addEventListener('click', async () => {
+        if (!confirm('Delete this attachment?')) return;
+
+        try {
+          if (detailAttachmentStatus) {
+            detailAttachmentStatus.textContent = 'Deleting attachment...';
+          }
+
+          const delRes = await fetch(
+            `${API_BASE_URL}/api/attachments/${a.id}`,
+            {
+              method: 'DELETE',
+              headers: authHeaders()
+            }
+          );
+          const delData = await safeJson(delRes);
+          if (!delRes.ok) {
+            throw new Error(delData.error || 'Failed to delete attachment');
+          }
+
+          await loadAttachments(taskId);
+
+          if (detailAttachmentStatus) {
+            detailAttachmentStatus.textContent = 'Attachment deleted.';
+            setTimeout(() => {
+              if (detailAttachmentStatus) {
+                detailAttachmentStatus.textContent = '';
+              }
+            }, 2000);
+          }
+        } catch (err) {
+          if (detailAttachmentStatus) {
+            detailAttachmentStatus.textContent = `Error: ${err.message}`;
+          } else {
+            alert(err.message);
+          }
+        }
+      });
+
+      li.appendChild(link);
+      if (metaSpan.textContent) li.appendChild(metaSpan);
+      li.appendChild(deleteBtn);
+
+      detailAttachmentsList.appendChild(li);
+    });
+  } catch (err) {
+    const li = document.createElement('li');
+    li.textContent = `Error: ${err.message}`;
+    detailAttachmentsList.appendChild(li);
+  }
+}
+
+/* ============================================================
    COMMENTS
    ============================================================ */
 
@@ -2054,6 +2173,66 @@ detailCommentForm.onsubmit = async (e) => {
     alert(err.message);
   }
 };
+
+/* ============================================================
+   ATTACHMENT UPLOAD
+   ============================================================ */
+
+if (detailAttachmentForm && detailAttachmentFile) {
+  detailAttachmentForm.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedTaskId) return;
+
+    const file = detailAttachmentFile.files[0];
+    if (!file) {
+      if (detailAttachmentStatus) {
+        detailAttachmentStatus.textContent = 'Please choose a file first.';
+      }
+      return;
+    }
+
+    try {
+      if (detailAttachmentStatus) {
+        detailAttachmentStatus.textContent = 'Uploading attachment...';
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/tasks/${selectedTaskId}/attachments`,
+        {
+          method: 'POST',
+          headers: authHeaders(), // don't set Content-Type manually
+          body: formData
+        }
+      );
+
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to upload attachment');
+
+      // Clear input
+      detailAttachmentFile.value = '';
+
+      await loadAttachments(selectedTaskId);
+
+      if (detailAttachmentStatus) {
+        detailAttachmentStatus.textContent = 'Attachment uploaded.';
+        setTimeout(() => {
+          if (detailAttachmentStatus) {
+            detailAttachmentStatus.textContent = '';
+          }
+        }, 2000);
+      }
+    } catch (err) {
+      if (detailAttachmentStatus) {
+        detailAttachmentStatus.textContent = `Error: ${err.message}`;
+      } else {
+        alert(err.message);
+      }
+    }
+  };
+}
 
 /* ============================================================
    GLOBAL DRAG/DROP SAFETY

@@ -15,7 +15,7 @@
           <div class="logo-orb"></div>
           <div>
             <h1 id="brand-title">XYMZ</h1>
-            <p id="brand-subtitle">Sign in to access XYMZ.Suite!</p>
+            <p id="brand-subtitle">Sign in to access XYMZ.Suite.</p>
           </div>
         </div>
 
@@ -621,6 +621,30 @@
                     Comment
                   </button>
                 </form>
+
+                <!-- Attachments -->
+                <h4 style="margin-top: 12px;">Attachments</h4>
+                <ul id="detail-attachments" class="attachments-list"></ul>
+
+                <form
+                  id="detail-attachment-form"
+                  class="attachment-form"
+                  enctype="multipart/form-data"
+                >
+                  <input
+                    type="file"
+                    id="detail-attachment-file"
+                    class="attachment-input"
+                  />
+                  <button type="submit" class="btn secondary small">
+                    Upload
+                  </button>
+                </form>
+                <span
+                  id="detail-attachment-status"
+                  class="status-text"
+                  style="margin-top: 4px;"
+                ></span>
 
                 <!-- Delete Task Button -->
                 <button

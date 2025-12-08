@@ -1055,7 +1055,9 @@ app.post('/api/tasks/:taskId/comments', authMiddleware, async (req, res) => {
   }
 });
 
-// ---- Attachments (simple file upload) ----
+// ---- Attachments (simple file upload + list + delete) ----
+
+// Upload a new attachment for a task
 app.post(
   '/api/tasks/:taskId/attachments',
   authMiddleware,
@@ -1101,16 +1103,130 @@ app.post(
         [info.lastInsertId]
       );
 
+      // Add a convenient URL field so the frontend can link directly
+      const attachmentWithUrl = {
+        ...attachment,
+        url: `/uploads/${attachment.filename}`
+      };
+
       await logActivity(project.org_id, req.user.id, 'attachment_added', {
         project_id: project.id,
         task_id: taskId,
         attachment_id: attachment.id
       });
 
-      res.status(201).json({ attachment });
+      res.status(201).json({ attachment: attachmentWithUrl });
     } catch (err) {
       console.error('Error in POST /api/tasks/:taskId/attachments:', err);
       res.status(500).json({ error: 'Failed to save attachment.' });
+    }
+  }
+);
+
+// List all attachments for a task
+app.get(
+  '/api/tasks/:taskId/attachments',
+  authMiddleware,
+  async (req, res) => {
+    const taskId = Number(req.params.taskId);
+    if (!taskId) return res.status(400).json({ error: 'Invalid taskId' });
+
+    try {
+      const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+      if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+      const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+        task.project_id
+      ]);
+      const member = await db.get(
+        'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+        [project.org_id, req.user.id]
+      );
+      if (!member) {
+        return res.status(403).json({ error: 'Not a member of this org.' });
+      }
+
+      const rows = await db.all(
+        `SELECT id, task_id, filename, original_name, mime_type, size, created_at
+         FROM attachments
+         WHERE task_id = ?
+         ORDER BY created_at ASC`,
+        [taskId]
+      );
+
+      const attachments = rows.map((a) => ({
+        ...a,
+        url: `/uploads/${a.filename}`
+      }));
+
+      res.json({ attachments });
+    } catch (err) {
+      console.error('Error in GET /api/tasks/:taskId/attachments:', err);
+      res.status(500).json({ error: 'Failed to load attachments.' });
+    }
+  }
+);
+
+// Delete a single attachment (DB + file on disk)
+app.delete(
+  '/api/attachments/:attachmentId',
+  authMiddleware,
+  async (req, res) => {
+    const attachmentId = Number(req.params.attachmentId);
+    if (!attachmentId) {
+      return res.status(400).json({ error: 'Invalid attachmentId' });
+    }
+
+    try {
+      const attachment = await db.get(
+        'SELECT * FROM attachments WHERE id = ?',
+        [attachmentId]
+      );
+      if (!attachment) {
+        return res.status(404).json({ error: 'Attachment not found.' });
+      }
+
+      const task = await db.get(
+        'SELECT * FROM tasks WHERE id = ?',
+        [attachment.task_id]
+      );
+      if (!task) {
+        return res.status(404).json({ error: 'Parent task not found.' });
+      }
+
+      const project = await db.get(
+        'SELECT * FROM projects WHERE id = ?',
+        [task.project_id]
+      );
+      const member = await db.get(
+        'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+        [project.org_id, req.user.id]
+      );
+      if (!member) {
+        return res.status(403).json({ error: 'Not a member of this org.' });
+      }
+
+      // Delete DB row
+      await db.run('DELETE FROM attachments WHERE id = ?', [attachmentId]);
+
+      // Try to delete the physical file (ignore if missing)
+      const filePath = path.join(UPLOADS_DIR, attachment.filename);
+      fs.unlink(filePath, (err) => {
+        if (err && err.code !== 'ENOENT') {
+          console.warn('Failed to delete attachment file:', filePath, err);
+        }
+      });
+
+      await logActivity(project.org_id, req.user.id, 'attachment_deleted', {
+        project_id: project.id,
+        task_id: task.id,
+        attachment_id
+      });
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error in DELETE /api/attachments/:attachmentId:', err);
+      res.status(500).json({ error: 'Failed to delete attachment.' });
     }
   }
 );

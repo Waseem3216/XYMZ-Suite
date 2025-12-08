@@ -111,19 +111,16 @@
       Use local XYMZ logo instead of the old orb.
       Image path: frontend/img/xymz-logo.png
       ----------------------------------------- */
-  .logo-orb {
-    width: 185px;              /* or whatever width fits your layout */
-    height: 60px;
-    border-radius: 14px;
-    background-image: url("../img/xymz-logo.png"); /* use the new file */
-    background-size: cover;    /* or 'contain' if you want full logo visible */
-    background-position: center;
-    background-repeat: no-repeat;
-    box-shadow: 0 0 28px rgba(56, 189, 248, 0.55);
-  }
-      
-      
-
+   .logo-orb {
+     width: 185px;
+     height: 60px;
+     border-radius: 14px;
+     background-image: url("../img/xymz-logo.png");
+     background-size: cover;
+     background-position: center;
+     background-repeat: no-repeat;
+     box-shadow: 0 0 28px rgba(56, 189, 248, 0.55);
+   }
    
    /* (Old .logo-orb::after sheen removed so it doesn't cover the logo) */
    
@@ -902,6 +899,85 @@
    }
    
    /* --------------------------------------------------
+      Attachments
+      -------------------------------------------------- */
+   
+   .attachments-list {
+     list-style: none;
+     padding: 0;
+     margin: 6px 0;
+     max-height: 140px;
+     overflow-y: auto;
+     font-size: 0.8rem;
+   }
+   
+   .attachment-item {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+     padding: 4px 0;
+     border-bottom: 1px solid rgba(31, 41, 55, 1);
+   }
+   
+   .attachment-item a {
+     color: #38bdf8;
+     text-decoration: none;
+     max-width: 60%;
+     white-space: nowrap;
+     overflow: hidden;
+     text-overflow: ellipsis;
+   }
+   
+   .attachment-item a:hover {
+     text-decoration: underline;
+   }
+   
+   .attachment-meta {
+     font-size: 0.76rem;
+     color: #9ca3af;
+     flex: 1;
+     white-space: nowrap;
+     overflow: hidden;
+     text-overflow: ellipsis;
+   }
+   
+   .attachment-delete-btn {
+     border-radius: 999px;
+     border: 1px solid rgba(239, 68, 68, 0.7);
+     background: rgba(127, 29, 29, 0.9);
+     color: #fecaca;
+     font-size: 0.7rem;
+     padding: 3px 8px;
+     cursor: pointer;
+     transition:
+       background 180ms ease,
+       border-color 180ms ease,
+       box-shadow 200ms ease,
+       transform 140ms ease;
+   }
+   
+   .attachment-delete-btn:hover {
+     background: rgba(185, 28, 28, 0.95);
+     border-color: rgba(248, 113, 113, 0.9);
+     box-shadow: 0 8px 18px rgba(15, 23, 42, 0.9);
+     transform: translateY(-1px);
+   }
+   
+   .attachment-form {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+     margin-top: 6px;
+     font-size: 0.8rem;
+   }
+   
+   .attachment-input[type="file"] {
+     flex: 1;
+     font-size: 0.78rem;
+     color: #e5e7eb;
+   }
+   
+   /* --------------------------------------------------
       Org switcher
       -------------------------------------------------- */
    
@@ -1072,58 +1148,55 @@
      border-bottom: 1px solid rgba(31, 41, 55, 1);
    }
    
-/* NEW: make clickable Radar rows feel interactive */
-.radar-clickable {
-  position: relative;
-  display: flex;              /* bar + text side-by-side */
-  align-items: center;
-  gap: 12px;                  /* distance between bar and text */
-
-  padding: 12px 20px;         /* overall padding */
-  margin: 4px 0;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  text-decoration: none;
-  color: #e5e7eb;
-  line-height: 1.35;
-  transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    box-shadow 200ms ease,
-    transform 140ms ease,
-    color 160ms ease;
-}
-
-.radar-clickable::before {
-  content: "";
-  flex: 0 0 3px;              /* width of the vertical bar */
-  align-self: stretch;        /* full height of the row */
-
-  border-radius: 999px;
-  background: linear-gradient(
-    to bottom,
-    rgba(252, 211, 77, 0.9),
-    rgba(248, 113, 113, 0.9)
-  );
-  opacity: 0.7;
-  transition:
-    opacity 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.radar-clickable:hover {
-  background: rgba(31, 41, 55, 0.9);
-  border-color: rgba(248, 113, 113, 0.6);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.95);
-  transform: translateY(-1px);
-}
-
-.radar-clickable:hover::before {
-  opacity: 1;
-  box-shadow: 0 0 12px rgba(248, 113, 113, 0.7);
-}
-
+   /* NEW: make clickable Radar rows feel interactive */
+   .radar-clickable {
+     position: relative;
+     display: flex;
+     align-items: center;
+     gap: 12px;
+     padding: 12px 20px;
+     margin: 4px 0;
+     border-radius: 10px;
+     border: 1px solid transparent;
+     cursor: pointer;
+     text-decoration: none;
+     color: #e5e7eb;
+     line-height: 1.35;
+     transition:
+       background 180ms ease,
+       border-color 180ms ease,
+       box-shadow 200ms ease,
+       transform 140ms ease,
+       color 160ms ease;
+   }
+   
+   .radar-clickable::before {
+     content: "";
+     flex: 0 0 3px;
+     align-self: stretch;
+     border-radius: 999px;
+     background: linear-gradient(
+       to bottom,
+       rgba(252, 211, 77, 0.9),
+       rgba(248, 113, 113, 0.9)
+     );
+     opacity: 0.7;
+     transition:
+       opacity 180ms ease,
+       box-shadow 180ms ease;
+   }
+   
+   .radar-clickable:hover {
+     background: rgba(31, 41, 55, 0.9);
+     border-color: rgba(248, 113, 113, 0.6);
+     box-shadow: 0 12px 28px rgba(15, 23, 42, 0.95);
+     transform: translateY(-1px);
+   }
+   
+   .radar-clickable:hover::before {
+     opacity: 1;
+     box-shadow: 0 0 12px rgba(248, 113, 113, 0.7);
+   }
    
    /* --------------------------------------------------
       Utilities
@@ -1221,7 +1294,7 @@
    }
    
    .footer-section details[open] summary {
-     color: #38bdf8; /* accent when open */
+     color: #38bdf8;
    }
    
    .footer-section details p {
@@ -1344,7 +1417,7 @@
       THEME VARIANTS (Suite / Ops / BI / Fleet / Radar)
       -------------------------------------------------- */
    
-   /* Suite = default look (but we explicitly set it so switching back is clean) */
+   /* Suite = default look */
    body.theme-suite {
      background: radial-gradient(circle at top left, #020617 0, #020617 45%, #000 100%);
    }
@@ -1358,7 +1431,7 @@
        linear-gradient(135deg, #020617, #020617, #020617);
    }
    
-   /* Ops: Fulvous (warm operations aesthetic) */
+   /* Ops */
    body.theme-ops {
      background: radial-gradient(circle at top left, #1a1004 0, #020617 50%, #020617 100%);
    }
@@ -1398,7 +1471,7 @@
      box-shadow: 0 10px 30px rgba(120, 53, 15, 0.9);
    }
    
-   /* BI: deep navy with indigo/violet analytics look */
+   /* BI */
    body.theme-bi {
      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #02011a 100%);
    }
@@ -1442,7 +1515,7 @@
      box-shadow: 0 14px 34px rgba(15, 23, 42, 0.95);
    }
    
-   /* Fleet: light brown / bronze aesthetic */
+   /* Fleet */
    body.theme-fleet {
      background: radial-gradient(circle at top left, #3a2614 0, #17110a 45%, #020617 100%);
    }
@@ -1476,7 +1549,7 @@
      box-shadow: 0 12px 32px rgba(120, 69, 33, 0.9);
    }
    
-   /* Radar: light russet aesthetic */
+   /* Radar */
    body.theme-radar {
      background: radial-gradient(circle at top left, #3b1410 0, #190707 45%, #020617 100%);
    }
