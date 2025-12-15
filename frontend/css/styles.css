@@ -1217,6 +1217,23 @@
      border: 0;
    }
    
+   /* Inline helper – good for inline forms/buttons on desktop */
+   .inline {
+     display: inline-flex;
+     align-items: center;
+     gap: 4px;
+   }
+   
+   /* Simple list helper (e.g., shortages list) */
+   .list {
+     margin: 6px 0 0;
+     padding-left: 1.15rem;
+   }
+   
+   .list li {
+     margin-bottom: 4px;
+   }
+   
    /* --------------------------------------------------
       Responsive
       -------------------------------------------------- */
@@ -1244,6 +1261,80 @@
    
      .radar-grid {
        grid-template-columns: 1fr;
+     }
+   }
+   
+   /* Stack board columns vertically on tablets / phones */
+   @media (max-width: 768px) {
+     .board {
+       grid-auto-flow: row;
+       grid-auto-columns: 1fr;
+       grid-template-columns: 1fr;
+       overflow-x: visible;
+     }
+   
+     .board-header {
+       flex-direction: column;
+       align-items: flex-start;
+       gap: 6px;
+     }
+   
+     .board-actions {
+       width: 100%;
+       flex-wrap: wrap;
+       justify-content: flex-start;
+     }
+   }
+   
+   /* Mobile optimizations */
+   @media (max-width: 640px) {
+     .topbar {
+       flex-direction: column;
+       align-items: flex-start;
+       gap: 6px;
+     }
+   
+     .brand {
+       width: 100%;
+       justify-content: space-between;
+       flex-wrap: wrap;
+     }
+   
+     .topbar-right {
+       width: 100%;
+       justify-content: space-between;
+     }
+   
+     .user-chip {
+       align-items: flex-start;
+     }
+   
+     .auth-panel {
+       max-width: 100%;
+       padding: 12px;
+     }
+   
+     .card {
+       border-radius: 12px;
+     }
+   
+     .comment-form,
+     .attachment-form {
+       flex-direction: column;
+       align-items: stretch;
+     }
+   
+     /* Make common action buttons more thumb-friendly */
+     .btn.full-width,
+     .detail-footer .btn,
+     .board-actions .btn {
+       width: 100%;
+     }
+   
+     /* Inline elements (e.g. small inline forms) stack on mobile */
+     .inline {
+       display: block;
+       width: 100%;
      }
    }
    
@@ -1633,3 +1724,4 @@
        transform: translateY(0) scale(1);
      }
    }
+   
