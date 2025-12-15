@@ -155,6 +155,10 @@ let selectedTaskId = null;
 let dragTaskId = null;
 let dragFromColumnId = null;
 
+// Touch-drag state (mobile)
+let touchTaskDragState = null;
+let touchProjectDragState = null;
+
 let currentView = 'suite';
 
 // projectCompletion[projectId] = true/false
@@ -164,6 +168,14 @@ let projectListDnDInitialized = false;
 /* ============================================================
    HELPERS
    ============================================================ */
+
+function isTouchLikeDevice() {
+  return (
+    'ontouchstart' in window ||
+    (navigator && typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 0) ||
+    (navigator && typeof navigator.msMaxTouchPoints === 'number' && navigator.msMaxTouchPoints > 0)
+  );
+}
 
 function setAuthStatus(msg) {
   authStatus.textContent = msg || '';
@@ -978,8 +990,7 @@ function renderProjectList() {
       await loadBoard(currentProjectId);
     });
 
-    // ✅ Add both a generic "dragging" class (used by logic)
-    //    and "dragging-project" (used by your CSS)
+    // Desktop drag & drop
     li.addEventListener('dragstart', () => {
       li.classList.add('dragging', 'dragging-project');
     });
@@ -1642,6 +1653,7 @@ function renderBoard() {
     body.classList.add('column-body');
     body.dataset.columnId = col.id;
 
+    // Desktop HTML5 DnD
     body.addEventListener('dragover', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -1666,8 +1678,11 @@ function renderTaskCard(task) {
   card.dataset.taskId = task.id;
   card.dataset.columnId = task.column_id;
 
+  // Desktop drag
   card.addEventListener('dragstart', handleTaskDragStart);
   card.addEventListener('dragend', handleTaskDragEnd);
+
+  // Click to open details
   card.addEventListener('click', () => {
     selectedTaskId = task.id;
     renderTaskDetail(task.id);
@@ -1702,8 +1717,10 @@ function renderTaskCard(task) {
 }
 
 /* ============================================================
-   DRAG & DROP
+   DRAG & DROP (Desktop + Mobile)
    ============================================================ */
+
+/* ---------- Desktop HTML5 drag for tasks ---------- */
 
 function handleTaskDragStart(e) {
   e.stopPropagation();
@@ -1724,16 +1741,14 @@ function handleTaskDragEnd(e) {
   dragFromColumnId = null;
 }
 
-async function handleColumnDrop(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  if (!dragTaskId) return;
+/* ---------- Shared "move task" helper used by desktop + touch ---------- */
 
-  const columnId = Number(e.currentTarget.dataset.columnId);
+async function moveTaskToColumn(taskId, columnId) {
+  if (!taskId || !columnId || !boardState.project) return;
 
   try {
     const res = await fetch(
-      `${API_BASE_URL}/api/tasks/${dragTaskId}/move`,
+      `${API_BASE_URL}/api/tasks/${taskId}/move`,
       {
         method: 'PATCH',
         headers: {
@@ -1754,6 +1769,173 @@ async function handleColumnDrop(e) {
     }
   } catch (err) {
     alert(err.message);
+  } finally {
+    dragTaskId = null;
+    dragFromColumnId = null;
+  }
+}
+
+async function handleColumnDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!dragTaskId) return;
+
+  const columnId = Number(e.currentTarget.dataset.columnId);
+  await moveTaskToColumn(dragTaskId, columnId);
+}
+
+/* ---------- Mobile / touch drag (tasks + projects) ---------- */
+
+function initTouchDnD() {
+  if (!isTouchLikeDevice()) return;
+
+  initTouchTaskDnD();
+  initTouchProjectDnD();
+}
+
+/* Mobile drag for task cards (column-to-column) */
+function initTouchTaskDnD() {
+  if (!boardEl) return;
+
+  boardEl.addEventListener('touchstart', onTaskTouchStart, { passive: true });
+
+  function onTaskTouchStart(e) {
+    const card = e.target.closest('.task-card');
+    if (!card) return;
+
+    const touch = e.touches[0];
+    touchTaskDragState = {
+      card,
+      taskId: Number(card.dataset.taskId),
+      startColId: Number(card.dataset.columnId),
+      startX: touch.clientX,
+      startY: touch.clientY,
+      isDragging: false
+    };
+
+    window.addEventListener('touchmove', onTaskTouchMove, { passive: false });
+    window.addEventListener('touchend', onTaskTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', onTaskTouchEnd, { passive: false });
+  }
+
+  function onTaskTouchMove(e) {
+    if (!touchTaskDragState) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchTaskDragState.startX;
+    const dy = touch.clientY - touchTaskDragState.startY;
+    const distanceSq = dx * dx + dy * dy;
+
+    // Start drag only after a small movement so taps still work
+    if (!touchTaskDragState.isDragging) {
+      if (distanceSq < 100) return; // ~10px threshold
+      touchTaskDragState.isDragging = true;
+      dragTaskId = touchTaskDragState.taskId;
+      dragFromColumnId = touchTaskDragState.startColId;
+      touchTaskDragState.card.classList.add('dragging');
+    }
+
+    // Once dragging, prevent scrolling
+    if (touchTaskDragState.isDragging) {
+      e.preventDefault();
+    }
+  }
+
+  async function onTaskTouchEnd(e) {
+    if (!touchTaskDragState) return;
+
+    const { card, taskId, startColId, isDragging } = touchTaskDragState;
+    touchTaskDragState = null;
+
+    window.removeEventListener('touchmove', onTaskTouchMove);
+    window.removeEventListener('touchend', onTaskTouchEnd);
+    window.removeEventListener('touchcancel', onTaskTouchEnd);
+
+    if (!isDragging) {
+      // It was just a tap; let the click handler open the detail panel.
+      return;
+    }
+
+    e.preventDefault();
+    card.classList.remove('dragging');
+
+    const touch = e.changedTouches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const colBody = el && el.closest('.column-body');
+    const toColumnId = colBody ? Number(colBody.dataset.columnId) : startColId;
+
+    if (!toColumnId || toColumnId === startColId) {
+      dragTaskId = null;
+      dragFromColumnId = null;
+      return;
+    }
+
+    await moveTaskToColumn(taskId, toColumnId);
+  }
+}
+
+/* Mobile drag for project list (reordering) */
+function initTouchProjectDnD() {
+  if (!projectListEl) return;
+
+  projectListEl.addEventListener('touchstart', onProjectTouchStart, { passive: true });
+
+  function onProjectTouchStart(e) {
+    const li = e.target.closest('li[data-id]');
+    if (!li) return;
+
+    const touch = e.touches[0];
+    touchProjectDragState = {
+      li,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      isDragging: false
+    };
+
+    window.addEventListener('touchmove', onProjectTouchMove, { passive: false });
+    window.addEventListener('touchend', onProjectTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', onProjectTouchEnd, { passive: false });
+  }
+
+  function onProjectTouchMove(e) {
+    if (!touchProjectDragState) return;
+
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchProjectDragState.startX;
+    const dy = touch.clientY - touchProjectDragState.startY;
+    const distanceSq = dx * dx + dy * dy;
+
+    if (!touchProjectDragState.isDragging) {
+      if (distanceSq < 100) return; // ~10px
+      touchProjectDragState.isDragging = true;
+      touchProjectDragState.li.classList.add('dragging', 'dragging-project');
+    }
+
+    if (touchProjectDragState.isDragging) {
+      e.preventDefault();
+      const afterElement = getProjectAfterElement(projectListEl, touch.clientY);
+      if (!afterElement) {
+        projectListEl.appendChild(touchProjectDragState.li);
+      } else {
+        projectListEl.insertBefore(touchProjectDragState.li, afterElement);
+      }
+    }
+  }
+
+  function onProjectTouchEnd(e) {
+    if (!touchProjectDragState) return;
+
+    const { li, isDragging } = touchProjectDragState;
+    touchProjectDragState = null;
+
+    window.removeEventListener('touchmove', onProjectTouchMove);
+    window.removeEventListener('touchend', onProjectTouchEnd);
+    window.removeEventListener('touchcancel', onProjectTouchEnd);
+
+    if (!isDragging) return;
+
+    e.preventDefault();
+    li.classList.remove('dragging', 'dragging-project');
+    saveProjectOrder(currentOrgId);
   }
 }
 
@@ -2260,4 +2442,5 @@ if (detailAttachmentForm && detailAttachmentFile) {
    ============================================================ */
 
 setBrandLoggedOut();
+initTouchDnD();   // enable mobile drag for tasks + projects
 loadSession();
