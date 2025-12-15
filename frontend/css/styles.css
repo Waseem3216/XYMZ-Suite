@@ -121,6 +121,11 @@
      background-repeat: no-repeat;
    }
    
+   .logo-orb:hover {
+    transform: translateY(-1px) rotate(-0.7deg);
+    border-color: var(--accent-soft-strong);
+    background-color: rgba(15, 23, 42, 1);
+   }
    /* (Old .logo-orb::after sheen removed so it doesn't cover the logo) */
    
    .topbar h1 {
