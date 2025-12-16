@@ -128,11 +128,20 @@ const biMeta = document.getElementById('bi-meta');
 const biChartCanvas = document.getElementById('bi-chart');
 let biChart = null;
 
+// ✅ BI download buttons
+const btnBiDownloadPdf = document.getElementById('btn-bi-download-pdf');
+const btnBiDownloadSvg = document.getElementById('btn-bi-download-svg');
+
 // BI Task Drilldown
 const biTaskChartArea = document.getElementById('bi-task-chart-area');
 const biTaskChartTitle = document.getElementById('bi-task-chart-title');
 const biTaskChartCanvas = document.getElementById('bi-task-chart');
 let biTaskChart = null;
+
+// NEW: keep latest BI datasets for report exports
+let lastBiSummary = []; // from /bi-summary
+let lastBiDrilldownTasks = []; // from /projects/:id/board for drilldown
+let lastBiDrilldownProjectName = ''; // for better report header
 
 /* ============================================================
    GLOBAL STATE
@@ -178,7 +187,7 @@ function isTouchLikeDevice() {
 }
 
 function setAuthStatus(msg) {
-  authStatus.textContent = msg || '';
+  if (authStatus) authStatus.textContent = msg || '';
 }
 
 function getToken() {
@@ -203,6 +212,465 @@ async function safeJson(res) {
   } catch {
     throw new Error(`Server returned non-JSON (status ${res.status})`);
   }
+}
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function formatDateShort(isoLike) {
+  if (!isoLike) return 'N/A';
+  const d = new Date(isoLike);
+  if (Number.isNaN(d.getTime())) return 'N/A';
+  return d.toLocaleDateString();
+}
+
+function computeDaysLeft(isoLike) {
+  if (!isoLike) return null;
+  const due = new Date(isoLike);
+  if (Number.isNaN(due.getTime())) return null;
+  const today = new Date();
+  // remove time-of-day effect
+  const dueMid = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+  const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.ceil((dueMid - todayMid) / (1000 * 60 * 60 * 24));
+}
+
+function safeTextForSvg(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/* ============================================================
+   BI EXPORT HELPERS (REPORT-STYLE PDF + SVG)
+   ============================================================ */
+
+function getActiveBiCanvas() {
+  // If drilldown is visible + has a chart, export that.
+  const drilldownVisible =
+    biTaskChartArea && !biTaskChartArea.classList.contains('hidden');
+  if (drilldownVisible && biTaskChart && biTaskChartCanvas) return biTaskChartCanvas;
+
+  // Otherwise export the main BI overview chart.
+  if (biChart && biChartCanvas) return biChartCanvas;
+
+  return null;
+}
+
+function getActiveBiFilenameBase() {
+  const drilldownVisible =
+    biTaskChartArea && !biTaskChartArea.classList.contains('hidden');
+
+  if (drilldownVisible) {
+    const title =
+      biTaskChartTitle && biTaskChartTitle.textContent
+        ? biTaskChartTitle.textContent
+        : 'XYMZ_BI_Task_Drilldown';
+    return title.replace(/[^\w\-]+/g, '_');
+  }
+  return 'XYMZ_BI_Project_Insights';
+}
+
+function setBiDownloadButtonsEnabled(enabled) {
+  if (btnBiDownloadPdf) btnBiDownloadPdf.disabled = !enabled;
+  if (btnBiDownloadSvg) btnBiDownloadSvg.disabled = !enabled;
+}
+
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function canvasToPngDataUrl(canvas) {
+  return canvas.toDataURL('image/png', 1.0);
+}
+
+/**
+ * Builds a "report packet" for either:
+ * - Project overview chart
+ * - Task drilldown chart
+ */
+function buildBiReportPacket() {
+  const drilldownVisible =
+    biTaskChartArea && !biTaskChartArea.classList.contains('hidden') && biTaskChart;
+
+  const generatedAt = new Date().toLocaleString();
+  const orgName =
+    (orgs.find((o) => o.id === currentOrgId)?.name) ||
+    (currentOrgId ? `Org #${currentOrgId}` : 'No Organization');
+
+  if (!drilldownVisible) {
+    // ---------- PROJECT OVERVIEW ----------
+    const summary = Array.isArray(lastBiSummary) ? lastBiSummary : [];
+
+    let totalInProgress = 0;
+    let totalReview = 0;
+    let totalDone = 0;
+
+    summary.forEach((p) => {
+      totalInProgress += (p.in_progress || 0);
+      totalReview += (p.review || 0);
+      totalDone += (p.complete || 0);
+    });
+
+    const total = totalInProgress + totalReview + totalDone;
+
+    // Identify bottleneck: review-heavy or in-progress-heavy
+    const reviewShare = total ? Math.round((totalReview / total) * 100) : 0;
+    const doneShare = total ? Math.round((totalDone / total) * 100) : 0;
+
+    // Top “at risk” projects: lots of active + soon deadline
+    const ranked = [...summary].sort((a, b) => {
+      const activeA = (a.in_progress || 0) + (a.review || 0);
+      const activeB = (b.in_progress || 0) + (b.review || 0);
+      if (activeB !== activeA) return activeB - activeA;
+      const dlA = a.days_left ?? 9999;
+      const dlB = b.days_left ?? 9999;
+      return dlA - dlB;
+    });
+
+    const topRisks = ranked.slice(0, 3).map((p) => {
+      const active = (p.in_progress || 0) + (p.review || 0);
+      const dl =
+        p.days_left != null
+          ? p.days_left === 0
+            ? 'due today'
+            : `due in ${p.days_left} day(s)`
+          : 'no deadline';
+      return `${p.project_name}: ${active} active, ${dl}`;
+    });
+
+    const insights = [];
+
+    insights.push(`Organization: ${orgName}`);
+    insights.push(`Generated: ${generatedAt}`);
+    insights.push(`Projects included: ${summary.length}`);
+
+    insights.push(`Total tasks tracked: ${total}`);
+    insights.push(
+      `In progress: ${totalInProgress} (${total ? Math.round((totalInProgress / total) * 100) : 0}%)`
+    );
+    insights.push(`In review: ${totalReview} (${reviewShare}%)`);
+    insights.push(`Done: ${totalDone} (${doneShare}%)`);
+
+    if (total > 0) {
+      if (doneShare >= 70) {
+        insights.push(`Delivery health: Strong completion pace`);
+      } else if (doneShare >= 40) {
+        insights.push(`Delivery health: Moderate progress, monitor flow`);
+      } else {
+        insights.push(`Delivery health: At risk, execution needs attention`);
+      }
+
+      if (reviewShare >= 35) {
+        insights.push(`Signal: Review backlog (QA/approvals may be bottleneck)`);
+      }
+
+      const active = totalInProgress + totalReview;
+      if (active > totalDone && totalDone > 0) {
+        insights.push(`Signal: WIP higher than throughput (risk of piling work)`);
+      }
+      if (totalDone === 0 && total > 0) {
+        insights.push(`Signal: No completed tasks yet (timeline risk)`);
+      }
+    } else {
+      insights.push(`Note: No tasks recorded in BI yet`);
+    }
+
+    if (topRisks.length) {
+      insights.push(`Top at-risk projects:`);
+      topRisks.forEach((line) => insights.push(`- ${line}`));
+    }
+
+    return {
+      kind: 'project_overview',
+      title: 'XYMZ.BI Report - Project Portfolio',
+      subtitle: `Organization: ${orgName}`,
+      generatedAt,
+      lines: insights
+    };
+  }
+
+  // ---------- TASK DRILLDOWN ----------
+  const title = biTaskChartTitle?.textContent || 'XYMZ.BI Report - Task Drilldown';
+  const tasks = Array.isArray(lastBiDrilldownTasks) ? lastBiDrilldownTasks : [];
+
+  // Resolve members list for assignee names (prefer current boardState members)
+  const memberPool = (boardState && Array.isArray(boardState.members) ? boardState.members : []);
+
+  const lines = [];
+  lines.push(`Organization: ${orgName}`);
+  lines.push(`Generated: ${generatedAt}`);
+  if (lastBiDrilldownProjectName) lines.push(`Project: ${lastBiDrilldownProjectName}`);
+
+  if (!tasks.length) {
+    lines.push('No tasks found for this project.');
+    return {
+      kind: 'task_drilldown',
+      title,
+      subtitle: `Organization: ${orgName}`,
+      generatedAt,
+      lines
+    };
+  }
+
+  // Basic rollups
+  const dueTasks = tasks.filter((t) => !!t.due_date);
+  const overdue = dueTasks.filter((t) => {
+    const dl = computeDaysLeft(t.due_date);
+    return typeof dl === 'number' && dl < 0;
+  });
+
+  const dueSoon = dueTasks.filter((t) => {
+    const dl = computeDaysLeft(t.due_date);
+    return typeof dl === 'number' && dl >= 0 && dl <= 3;
+  });
+
+  const high = tasks.filter((t) => (t.priority || '').toLowerCase() === 'high');
+
+  lines.push(`Tasks: ${tasks.length}`);
+  lines.push(`With due dates: ${dueTasks.length}`);
+  lines.push(`Overdue: ${overdue.length}`);
+  lines.push(`Due in 3 days or less: ${dueSoon.length}`);
+  lines.push(`High priority: ${high.length}`);
+
+  // Detailed per-task analysis lines
+  lines.push('Task breakdown:');
+  tasks.slice(0, 40).forEach((t) => {
+    const due = t.due_date ? formatDateShort(t.due_date) : 'N/A';
+    const dl = computeDaysLeft(t.due_date);
+    const daysText =
+      dl == null
+        ? 'No due date'
+        : dl < 0
+        ? `Overdue ${Math.abs(dl)}d`
+        : `${dl}d left`;
+
+    const pr = (t.priority || 'medium').toLowerCase();
+    const assignee =
+      memberPool.find((m) => m.id === t.assigned_to)?.name ||
+      memberPool.find((m) => m.id === t.assigned_to)?.email ||
+      'Unassigned';
+
+    lines.push(
+      `• ${t.title} - Due: ${due} (${daysText}) - Priority: ${pr} - Assigned: ${assignee}`
+    );
+  });
+
+  if (tasks.length > 40) {
+    lines.push(`(Showing first 40 tasks - export limited for readability)`);
+  }
+
+  return {
+    kind: 'task_drilldown',
+    title,
+    subtitle: `Organization: ${orgName}`,
+    generatedAt,
+    lines
+  };
+}
+
+/**
+ * Report-style PDF:
+ * - header
+ * - chart image
+ * - analysis section
+ */
+function downloadActiveBiAsPdf() {
+  const canvas = getActiveBiCanvas();
+  if (!canvas) {
+    alert('No chart available to export yet.');
+    return;
+  }
+
+  // jsPDF UMD global
+  const jspdf = window.jspdf;
+  if (!jspdf || !jspdf.jsPDF) {
+    alert('PDF export library failed to load (jsPDF). Check your index.html script tag.');
+    return;
+  }
+
+  const packet = buildBiReportPacket();
+  const filename = `${getActiveBiFilenameBase()}_Report.pdf`;
+
+  // Use standard A4 so the PDF looks like a report
+  const pdf = new jspdf.jsPDF({
+    orientation: 'portrait',
+    unit: 'pt',
+    format: 'a4'
+  });
+
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+
+  const margin = 40;
+  let y = 46;
+
+  // Title
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(18);
+  pdf.text(packet.title, margin, y);
+
+  y += 20;
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(11);
+  pdf.text(packet.subtitle, margin, y);
+
+  y += 16;
+  pdf.setFontSize(10);
+  pdf.text(`Generated: ${packet.generatedAt}`, margin, y);
+
+  // Divider
+  y += 14;
+  pdf.setDrawColor(220);
+  pdf.line(margin, y, pageW - margin, y);
+
+  // Chart image sizing
+  const imgData = canvasToPngDataUrl(canvas);
+  const imgMaxW = pageW - margin * 2;
+  const imgMaxH = 280;
+
+  // Keep aspect ratio based on canvas dimensions
+  const ratio = canvas.width / canvas.height || 1;
+  let imgW = imgMaxW;
+  let imgH = imgW / ratio;
+  if (imgH > imgMaxH) {
+    imgH = imgMaxH;
+    imgW = imgH * ratio;
+  }
+
+  y += 18;
+  const imgX = margin + (imgMaxW - imgW) / 2;
+  pdf.addImage(imgData, 'PNG', imgX, y, imgW, imgH);
+
+  y += imgH + 20;
+
+  // Analysis header
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(12);
+  pdf.text('Analysis', margin, y);
+  y += 14;
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(10);
+
+  // Wrap text lines for PDF width
+  const wrapWidth = pageW - margin * 2;
+  const lineSpacing = 13;
+
+  packet.lines.forEach((rawLine) => {
+    const line = String(rawLine);
+    const wrapped = pdf.splitTextToSize(line, wrapWidth);
+
+    wrapped.forEach((wLine) => {
+      if (y > pageH - margin) {
+        pdf.addPage();
+        y = margin;
+      }
+      pdf.text(wLine, margin, y);
+      y += lineSpacing;
+    });
+  });
+
+  pdf.save(filename);
+}
+
+/**
+ * Report-style SVG:
+ * - white page background
+ * - title/subtitle/date
+ * - analysis text
+ * - embedded chart image
+ */
+function downloadActiveBiAsSvg() {
+  const canvas = getActiveBiCanvas();
+  if (!canvas) {
+    alert('No chart available to export yet.');
+    return;
+  }
+
+  const packet = buildBiReportPacket();
+  const filename = `${getActiveBiFilenameBase()}_Report.svg`;
+
+  const pngDataUrl = canvasToPngDataUrl(canvas);
+
+  const pageW = 1240;
+  const pageH = 1754;
+
+  const margin = 70;
+
+  // Header layout
+  const headerTopY = 90;
+  const titleY = headerTopY;
+  const subtitleY = titleY + 56;
+  const generatedY = subtitleY + 34;
+  const dividerY = generatedY + 30;
+
+  // ✅ Move chart BELOW the divider with padding
+  const chartY = dividerY + 50;
+
+  const title = safeTextForSvg(packet.title);
+  const subtitle = safeTextForSvg(packet.subtitle);
+  const generated = safeTextForSvg(`Generated: ${packet.generatedAt}`);
+
+  const chartMaxW = pageW - margin * 2;
+  const chartMaxH = 520;
+
+  const ratio = canvas.width / canvas.height || 1;
+  let chartW = chartMaxW;
+  let chartH = chartW / ratio;
+  if (chartH > chartMaxH) {
+    chartH = chartMaxH;
+    chartW = chartH * ratio;
+  }
+
+  const chartX = margin + (chartMaxW - chartW) / 2;
+
+  // Analysis text area
+  const analysisStartY = chartY + chartH + 80;
+  const maxLines = 65;
+
+  const lines = packet.lines.slice(0, maxLines).map((l) => safeTextForSvg(l));
+  if (packet.lines.length > maxLines) {
+    lines.push(safeTextForSvg(`(Showing first ${maxLines} lines)`));
+  }
+
+  const lineHeight = 26;
+
+  const analysisTspans = lines
+    .map((l, idx) => {
+      const yy = analysisStartY + idx * lineHeight;
+      return `<text x="${margin}" y="${yy}" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#111827">${l}</text>`;
+    })
+    .join('\n');
+
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${pageW}" height="${pageH}" viewBox="0 0 ${pageW} ${pageH}">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+
+  <text x="${margin}" y="${titleY}" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#0f172a">${title}</text>
+  <text x="${margin}" y="${subtitleY}" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#334155">${subtitle}</text>
+  <text x="${margin}" y="${generatedY}" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#64748b">${generated}</text>
+  <line x1="${margin}" y1="${dividerY}" x2="${pageW - margin}" y2="${dividerY}" stroke="#e5e7eb" stroke-width="2"/>
+
+  <rect x="${margin}" y="${chartY - 18}" width="${pageW - margin * 2}" height="${chartH + 36}" rx="18" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+  <image href="${pngDataUrl}" x="${chartX}" y="${chartY}" width="${chartW}" height="${chartH}" />
+
+  <text x="${margin}" y="${analysisStartY - 30}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#0f172a">Analysis</text>
+  ${analysisTspans}
+</svg>
+`.trim();
+
+  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  downloadBlob(filename, blob);
 }
 
 /* ---------- Persisted selection helpers ---------- */
@@ -259,8 +727,7 @@ function setCurrentProjectId(newProjectId) {
 
 function setBrandLoggedOut() {
   if (brandTitle) brandTitle.textContent = 'XYMZ';
-  if (brandSubtitle)
-    brandSubtitle.textContent = 'Sign in to access XYMZ.Suite.';
+  if (brandSubtitle) brandSubtitle.textContent = 'Sign in to access XYMZ.Suite.';
 }
 
 function setBrandForView(view) {
@@ -274,16 +741,13 @@ function setBrandForView(view) {
     brandSubtitle.textContent = 'Live risk signals & delivery health.';
   } else if (view === 'ops') {
     brandTitle.textContent = 'XYMZ.Ops';
-    brandSubtitle.textContent =
-      'Operational boards for shared client delivery.';
+    brandSubtitle.textContent = 'Operational boards for shared client delivery.';
   } else if (view === 'bi') {
     brandTitle.textContent = 'XYMZ.BI';
-    brandSubtitle.textContent =
-      'Project insights & portfolio intelligence.';
+    brandSubtitle.textContent = 'Project insights & portfolio intelligence.';
   } else {
     brandTitle.textContent = 'XYMZ.Suite';
-    brandSubtitle.textContent =
-      'Shared workspaces for agencies & clients.';
+    brandSubtitle.textContent = 'Shared workspaces for agencies & clients.';
   }
 }
 
@@ -291,25 +755,13 @@ function setThemeForView(view) {
   const body = document.body;
   if (!body) return;
 
-  body.classList.remove(
-    'theme-suite',
-    'theme-ops',
-    'theme-bi',
-    'theme-fleet',
-    'theme-radar'
-  );
+  body.classList.remove('theme-suite', 'theme-ops', 'theme-bi', 'theme-fleet', 'theme-radar');
 
-  if (view === 'ops') {
-    body.classList.add('theme-ops');
-  } else if (view === 'bi') {
-    body.classList.add('theme-bi');
-  } else if (view === 'fleet') {
-    body.classList.add('theme-fleet');
-  } else if (view === 'radar') {
-    body.classList.add('theme-radar');
-  } else {
-    body.classList.add('theme-suite');
-  }
+  if (view === 'ops') body.classList.add('theme-ops');
+  else if (view === 'bi') body.classList.add('theme-bi');
+  else if (view === 'fleet') body.classList.add('theme-fleet');
+  else if (view === 'radar') body.classList.add('theme-radar');
+  else body.classList.add('theme-suite');
 }
 
 function setBrandLoggedIn() {
@@ -326,14 +778,12 @@ function setActiveView(view) {
   // 🔐 Remember last view across reloads
   try {
     localStorage.setItem(LAST_VIEW_KEY, view);
-  } catch (e) {
+  } catch {
     // ignore storage errors
   }
 
   // Tabs
-  suiteTabs.forEach((btn) =>
-    btn.classList.toggle('active', btn.dataset.view === view)
-  );
+  suiteTabs.forEach((btn) => btn.classList.toggle('active', btn.dataset.view === view));
 
   // Sections
   if (suiteView) suiteView.classList.toggle('hidden', view !== 'suite');
@@ -347,34 +797,34 @@ function setActiveView(view) {
   setThemeForView(view);
 
   // View-specific data
-  if (view === 'bi') {
-    loadBiDashboard();
-  } else if (view === 'fleet') {
-    renderFleetView();
-  } else if (view === 'radar') {
-    loadRadarSnapshot();
-  }
+  if (view === 'bi') loadBiDashboard();
+  else if (view === 'fleet') renderFleetView();
+  else if (view === 'radar') loadRadarSnapshot();
 }
 
 /* ============================================================
    AUTH TABS
    ============================================================ */
 
-tabLogin.onclick = () => {
-  tabLogin.classList.add('active');
-  tabRegister.classList.remove('active');
-  loginForm.classList.remove('hidden');
-  registerForm.classList.add('hidden');
-  setAuthStatus('');
-};
+if (tabLogin) {
+  tabLogin.onclick = () => {
+    tabLogin.classList.add('active');
+    tabRegister.classList.remove('active');
+    loginForm.classList.remove('hidden');
+    registerForm.classList.add('hidden');
+    setAuthStatus('');
+  };
+}
 
-tabRegister.onclick = () => {
-  tabRegister.classList.add('active');
-  tabLogin.classList.remove('active');
-  registerForm.classList.remove('hidden');
-  loginForm.classList.add('hidden');
-  setAuthStatus('');
-};
+if (tabRegister) {
+  tabRegister.onclick = () => {
+    tabRegister.classList.add('active');
+    tabLogin.classList.remove('active');
+    registerForm.classList.remove('hidden');
+    loginForm.classList.add('hidden');
+    setAuthStatus('');
+  };
+}
 
 /* ============================================================
    SUITE NAV
@@ -408,150 +858,153 @@ if (registerIsAdmin) {
    AUTH FLOWS
    ============================================================ */
 
-loginForm.onsubmit = async (e) => {
-  e.preventDefault();
-  setAuthStatus('Logging in...');
+if (loginForm) {
+  loginForm.onsubmit = async (e) => {
+    e.preventDefault();
+    setAuthStatus('Logging in...');
 
-  const orgTokenVal = (loginOrgToken ? loginOrgToken.value : '').trim();
+    const orgTokenVal = (loginOrgToken ? loginOrgToken.value : '').trim();
 
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: loginEmail.value.trim(),
-        password: loginPassword.value
-      })
-    });
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: loginEmail.value.trim(),
+          password: loginPassword.value
+        })
+      });
 
-    const data = await safeJson(res);
-    if (!res.ok) throw new Error(data.error || 'Login failed');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Login failed');
 
-    setToken(data.token);
-    await loadSession();
-    setAuthStatus('');
-
-    if (orgTokenVal) {
-      await joinOrgByToken(orgTokenVal);
-    }
-  } catch (err) {
-    setAuthStatus(`Error: ${err.message}`);
-  }
-};
-
-registerForm.onsubmit = async (e) => {
-  e.preventDefault();
-  setAuthStatus('Creating account...');
-
-  const isAdmin = registerIsAdmin.checked;
-  const orgTokenVal = (registerOrgToken ? registerOrgToken.value : '').trim();
-  const orgNameVal = registerOrgName ? registerOrgName.value.trim() : '';
-  const secQuestion = registerSecurityQuestion.value;
-  const secAnswer = (registerSecurityAnswer.value || '').trim();
-
-  if (!secQuestion) {
-    setAuthStatus('Please select a security question.');
-    return;
-  }
-  if (!secAnswer) {
-    setAuthStatus('Please provide an answer to your security question.');
-    return;
-  }
-
-  if (isAdmin) {
-    if (!/^\d{6}$/.test(orgTokenVal)) {
-      setAuthStatus('Admin accounts must set a 6-digit organization token.');
-      return;
-    }
-    if (registerOrgName && !orgNameVal) {
-      setAuthStatus('Admin accounts must enter an organization name.');
-      return;
-    }
-  }
-
-  try {
-    const emailVal = registerEmail.value.trim();
-
-    const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: registerName.value.trim(),
-        email: emailVal,
-        password: registerPassword.value,
-        security_question: secQuestion,
-        security_answer: secAnswer,
-        is_admin: isAdmin,
-        org_token: isAdmin ? orgTokenVal : null,
-        org_name: isAdmin ? orgNameVal : null
-      })
-    });
-
-    const data = await safeJson(res);
-    if (!res.ok) throw new Error(data.error || 'Register failed');
-
-    if (isAdmin) {
       setToken(data.token);
       await loadSession();
       setAuthStatus('');
+
+      if (orgTokenVal) {
+        await joinOrgByToken(orgTokenVal);
+      }
+    } catch (err) {
+      setAuthStatus(`Error: ${err.message}`);
+    }
+  };
+}
+
+if (registerForm) {
+  registerForm.onsubmit = async (e) => {
+    e.preventDefault();
+    setAuthStatus('Creating account...');
+
+    const isAdmin = registerIsAdmin.checked;
+    const orgTokenVal = (registerOrgToken ? registerOrgToken.value : '').trim();
+    const orgNameVal = registerOrgName ? registerOrgName.value.trim() : '';
+    const secQuestion = registerSecurityQuestion.value;
+    const secAnswer = (registerSecurityAnswer.value || '').trim();
+
+    if (!secQuestion) {
+      setAuthStatus('Please select a security question.');
+      return;
+    }
+    if (!secAnswer) {
+      setAuthStatus('Please provide an answer to your security question.');
       return;
     }
 
-    setAuthStatus('');
-    alert(
-      'Your participant account was created successfully.\n\nPlease log in using the 6-digit organization token that was shared with you by your workspace admin.'
-    );
+    if (isAdmin) {
+      if (!/^\d{6}$/.test(orgTokenVal)) {
+        setAuthStatus('Admin accounts must set a 6-digit organization token.');
+        return;
+      }
+      if (registerOrgName && !orgNameVal) {
+        setAuthStatus('Admin accounts must enter an organization name.');
+        return;
+      }
+    }
 
-    tabLogin.classList.add('active');
-    tabRegister.classList.remove('active');
-    loginForm.classList.remove('hidden');
-    registerForm.classList.add('hidden');
+    try {
+      const emailVal = registerEmail.value.trim();
 
-    loginEmail.value = emailVal;
-    loginPassword.value = '';
-  } catch (err) {
-    setAuthStatus(`Error: ${err.message}`);
-  }
-};
+      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: registerName.value.trim(),
+          email: emailVal,
+          password: registerPassword.value,
+          security_question: secQuestion,
+          security_answer: secAnswer,
+          is_admin: isAdmin,
+          org_token: isAdmin ? orgTokenVal : null,
+          org_name: isAdmin ? orgNameVal : null
+        })
+      });
 
-logoutBtn.onclick = () => {
-  setToken(null);
-  currentUser = null;
-  orgs = [];
-  setCurrentOrgId(null);
-  projects = [];
-  setCurrentProjectId(null);
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Register failed');
 
-  boardState = { project: null, columns: [], tasks: [], members: [] };
-  selectedTaskId = null;
-  dragTaskId = null;
-  dragFromColumnId = null;
-  projectCompletion = {};
-  projectListDnDInitialized = false;
+      if (isAdmin) {
+        setToken(data.token);
+        await loadSession();
+        setAuthStatus('');
+        return;
+      }
 
-  authPanel.classList.remove('hidden');
-  appPanel.classList.add('hidden');
-  logoutBtn.classList.add('hidden');
-  orgSwitcher.classList.add('hidden');
+      setAuthStatus('');
+      alert(
+        'Your participant account was created successfully.\n\nPlease log in using the 6-digit organization token that was shared with you by your workspace admin.'
+      );
 
-  userNameSpan.textContent = '';
-  userEmailSpan.textContent = '';
+      tabLogin.classList.add('active');
+      tabRegister.classList.remove('active');
+      loginForm.classList.remove('hidden');
+      registerForm.classList.add('hidden');
 
-  if (biChart) biChart.destroy();
-  if (biTaskChart) biTaskChart.destroy();
+      loginEmail.value = emailVal;
+      loginPassword.value = '';
+    } catch (err) {
+      setAuthStatus(`Error: ${err.message}`);
+    }
+  };
+}
 
-  document.body.classList.remove(
-    'theme-suite',
-    'theme-ops',
-    'theme-bi',
-    'theme-fleet',
-    'theme-radar'
-  );
+if (logoutBtn) {
+  logoutBtn.onclick = () => {
+    setToken(null);
+    currentUser = null;
+    orgs = [];
+    setCurrentOrgId(null);
+    projects = [];
+    setCurrentProjectId(null);
 
-  // Just start on the main Suite view
-  setActiveView('suite');
-  setBrandLoggedIn();
-};
+    boardState = { project: null, columns: [], tasks: [], members: [] };
+    selectedTaskId = null;
+    dragTaskId = null;
+    dragFromColumnId = null;
+    projectCompletion = {};
+    projectListDnDInitialized = false;
+
+    if (authPanel) authPanel.classList.remove('hidden');
+    if (appPanel) appPanel.classList.add('hidden');
+    logoutBtn.classList.add('hidden');
+    if (orgSwitcher) orgSwitcher.classList.add('hidden');
+
+    if (userNameSpan) userNameSpan.textContent = '';
+    if (userEmailSpan) userEmailSpan.textContent = '';
+
+    if (biChart) biChart.destroy();
+    if (biTaskChart) biTaskChart.destroy();
+
+    // disable exports after logout
+    setBiDownloadButtonsEnabled(false);
+
+    document.body.classList.remove('theme-suite', 'theme-ops', 'theme-bi', 'theme-fleet', 'theme-radar');
+
+    // Just start on the main Suite view
+    setActiveView('suite');
+    setBrandLoggedIn();
+  };
+}
 
 /* ============================================================
    RESET PASSWORD / RESET TOKEN HANDLERS
@@ -564,9 +1017,7 @@ if (linkResetPassword) {
 
     try {
       const qRes = await fetch(
-        `${API_BASE_URL}/api/auth/security-question?email=${encodeURIComponent(
-          email
-        )}`
+        `${API_BASE_URL}/api/auth/security-question?email=${encodeURIComponent(email)}`
       );
       const qData = await safeJson(qRes);
       if (!qRes.ok) throw new Error(qData.error || 'Could not find that email.');
@@ -576,9 +1027,7 @@ if (linkResetPassword) {
       ) || '').trim();
       if (!answer) return;
 
-      const newPassword = (prompt(
-        'Enter your new password (minimum 6 characters):'
-      ) || '').trim();
+      const newPassword = (prompt('Enter your new password (minimum 6 characters):') || '').trim();
       if (!newPassword) return;
       if (newPassword.length < 6) {
         alert('Password must be at least 6 characters.');
@@ -632,9 +1081,7 @@ if (linkResetToken) {
       const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to reset token.');
 
-      alert(
-        `Organization token updated successfully.\n\nNew token: ${data.join_token}`
-      );
+      alert(`Organization token updated successfully.\n\nNew token: ${data.join_token}`);
     } catch (err) {
       alert(`Token reset error: ${err.message}`);
     }
@@ -648,27 +1095,22 @@ if (linkResetToken) {
 async function loadSession() {
   const token = getToken();
   if (!token) {
-    authPanel.classList.remove('hidden');
-    appPanel.classList.add('hidden');
-    logoutBtn.classList.add('hidden');
-    orgSwitcher.classList.add('hidden');
+    if (authPanel) authPanel.classList.remove('hidden');
+    if (appPanel) appPanel.classList.add('hidden');
+    if (logoutBtn) logoutBtn.classList.add('hidden');
+    if (orgSwitcher) orgSwitcher.classList.add('hidden');
 
-    document.body.classList.remove(
-      'theme-suite',
-      'theme-ops',
-      'theme-bi',
-      'theme-fleet',
-      'theme-radar'
-    );
+    // exports disabled if not logged in
+    setBiDownloadButtonsEnabled(false);
+
+    document.body.classList.remove('theme-suite', 'theme-ops', 'theme-bi', 'theme-fleet', 'theme-radar');
     setActiveView('suite');
     setBrandLoggedOut();
     return;
   }
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/me`, {
-      headers: authHeaders()
-    });
+    const res = await fetch(`${API_BASE_URL}/api/me`, { headers: authHeaders() });
 
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Invalid session');
@@ -676,20 +1118,20 @@ async function loadSession() {
     currentUser = data.user;
     orgs = data.orgs || [];
 
-    userNameSpan.textContent = currentUser.name;
-    userEmailSpan.textContent = currentUser.email;
+    if (userNameSpan) userNameSpan.textContent = currentUser.name;
+    if (userEmailSpan) userEmailSpan.textContent = currentUser.email;
 
-    authPanel.classList.add('hidden');
-    appPanel.classList.remove('hidden');
-    logoutBtn.classList.remove('hidden');
-    orgSwitcher.classList.remove('hidden');
+    if (authPanel) authPanel.classList.add('hidden');
+    if (appPanel) appPanel.classList.remove('hidden');
+    if (logoutBtn) logoutBtn.classList.remove('hidden');
+    if (orgSwitcher) orgSwitcher.classList.remove('hidden');
 
     // Prefer the last view, default to Suite when logged in
     let initialView = 'suite';
     try {
       const saved = localStorage.getItem(LAST_VIEW_KEY);
       if (saved) initialView = saved;
-    } catch (e) {
+    } catch {
       // ignore
     }
 
@@ -707,28 +1149,26 @@ async function loadSession() {
     renderOrgOptions();
 
     if (currentOrgId) {
-      orgSelect.value = currentOrgId;
+      if (orgSelect) orgSelect.value = currentOrgId;
       await loadProjectsForOrg(currentOrgId);
       await loadActivity(currentOrgId);
     }
   } catch (err) {
     setToken(null);
     setAuthStatus(`Session error: ${err.message}`);
-    authPanel.classList.remove('hidden');
-    appPanel.classList.add('hidden');
-    document.body.classList.remove(
-      'theme-suite',
-      'theme-ops',
-      'theme-bi',
-      'theme-fleet',
-      'theme-radar'
-    );
+    if (authPanel) authPanel.classList.remove('hidden');
+    if (appPanel) appPanel.classList.add('hidden');
+
+    setBiDownloadButtonsEnabled(false);
+
+    document.body.classList.remove('theme-suite', 'theme-ops', 'theme-bi', 'theme-fleet', 'theme-radar');
     setActiveView('suite');
     setBrandLoggedOut();
   }
 }
 
 function renderOrgOptions() {
+  if (!orgSelect) return;
   orgSelect.innerHTML = '';
   orgs.forEach((org) => {
     const opt = document.createElement('option');
@@ -758,7 +1198,7 @@ function loadProjectOrder(orgId) {
 }
 
 function saveProjectOrder(orgId) {
-  if (!orgId) return;
+  if (!orgId || !projectListEl) return;
   const order = [];
   projectListEl.querySelectorAll('li[data-id]').forEach((li) => {
     order.push(Number(li.dataset.id));
@@ -786,54 +1226,58 @@ function getProjectAfterElement(container, y) {
    ORGS / PROJECTS / ACTIVITY
    ============================================================ */
 
-orgSelect.onchange = async () => {
-  setCurrentOrgId(Number(orgSelect.value));
-  setCurrentProjectId(null);
-
-  boardState = { project: null, columns: [], tasks: [], members: [] };
-  renderBoard();
-  renderTaskDetail(null);
-  renderFleetView();
-
-  await loadProjectsForOrg(currentOrgId);
-  await loadActivity(currentOrgId);
-
-  if (currentView === 'bi') loadBiDashboard();
-  if (currentView === 'radar') loadRadarSnapshot();
-};
-
-btnNewOrg.onclick = async () => {
-  const name = prompt('New organization name:');
-  if (!name) return;
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/orgs`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
-      body: JSON.stringify({ name })
-    });
-
-    const data = await safeJson(res);
-    if (!res.ok) throw new Error(data.error || 'Failed to create org');
-
-    orgs.push(data);
-    setCurrentOrgId(data.id);
+if (orgSelect) {
+  orgSelect.onchange = async () => {
+    setCurrentOrgId(Number(orgSelect.value));
     setCurrentProjectId(null);
 
-    renderOrgOptions();
-    orgSelect.value = currentOrgId;
+    boardState = { project: null, columns: [], tasks: [], members: [] };
+    renderBoard();
+    renderTaskDetail(null);
+    renderFleetView();
 
     await loadProjectsForOrg(currentOrgId);
     await loadActivity(currentOrgId);
+
     if (currentView === 'bi') loadBiDashboard();
     if (currentView === 'radar') loadRadarSnapshot();
-  } catch (err) {
-    alert(err.message);
-  }
-};
+  };
+}
+
+if (btnNewOrg) {
+  btnNewOrg.onclick = async () => {
+    const name = prompt('New organization name:');
+    if (!name) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/orgs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders()
+        },
+        body: JSON.stringify({ name })
+      });
+
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to create org');
+
+      orgs.push(data);
+      setCurrentOrgId(data.id);
+      setCurrentProjectId(null);
+
+      renderOrgOptions();
+      if (orgSelect) orgSelect.value = currentOrgId;
+
+      await loadProjectsForOrg(currentOrgId);
+      await loadActivity(currentOrgId);
+      if (currentView === 'bi') loadBiDashboard();
+      if (currentView === 'radar') loadRadarSnapshot();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+}
 
 async function joinOrgByToken(token) {
   const trimmed = (token || '').trim();
@@ -872,17 +1316,15 @@ async function refreshProjectCompletion(orgId) {
   if (!orgId) return;
 
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/orgs/${orgId}/bi-summary`,
-      { headers: authHeaders() }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/orgs/${orgId}/bi-summary`, {
+      headers: authHeaders()
+    });
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to load BI summary');
 
     const summary = data.projects || [];
     summary.forEach((p) => {
-      const total =
-        (p.in_progress || 0) + (p.review || 0) + (p.complete || 0);
+      const total = (p.in_progress || 0) + (p.review || 0) + (p.complete || 0);
       projectCompletion[p.project_id] = total > 0 && p.complete === total;
     });
   } catch (err) {
@@ -891,7 +1333,7 @@ async function refreshProjectCompletion(orgId) {
 }
 
 async function loadProjectsForOrg(orgId) {
-  projectListEl.innerHTML = '';
+  if (projectListEl) projectListEl.innerHTML = '';
 
   try {
     const res = await fetch(`${API_BASE_URL}/api/orgs/${orgId}/projects`, {
@@ -908,10 +1350,7 @@ async function loadProjectsForOrg(orgId) {
     // Choose which project to show:
     if (!currentProjectId) {
       const storedProjectId = getStoredLastProjectId();
-      if (
-        storedProjectId &&
-        projects.some((p) => p.id === storedProjectId)
-      ) {
+      if (storedProjectId && projects.some((p) => p.id === storedProjectId)) {
         setCurrentProjectId(storedProjectId);
       } else if (projects.length) {
         setCurrentProjectId(projects[0].id);
@@ -935,12 +1374,13 @@ async function loadProjectsForOrg(orgId) {
       renderFleetView();
     }
   } catch (err) {
-    projectListEl.textContent = `Error: ${err.message}`;
+    if (projectListEl) projectListEl.textContent = `Error: ${err.message}`;
   }
 }
 
 // Renders project list with drag & drop + ✓ indicator
 function renderProjectList() {
+  if (!projectListEl) return;
   projectListEl.innerHTML = '';
 
   if (!projects.length) {
@@ -1021,54 +1461,53 @@ function renderProjectList() {
   }
 }
 
-btnNewProject.onclick = async () => {
-  if (!currentOrgId) {
-    alert('Select an organization first.');
-    return;
-  }
+if (btnNewProject) {
+  btnNewProject.onclick = async () => {
+    if (!currentOrgId) {
+      alert('Select an organization first.');
+      return;
+    }
 
-  const name = prompt('Project name:');
-  if (!name) return;
+    const name = prompt('Project name:');
+    if (!name) return;
 
-  const description = prompt('Project description (optional):') || '';
+    const description = prompt('Project description (optional):') || '';
 
-  try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/orgs/${currentOrgId}/projects`,
-      {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/orgs/${currentOrgId}/projects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...authHeaders()
         },
         body: JSON.stringify({ name, description })
-      }
-    );
+      });
 
-    const data = await safeJson(res);
-    if (!res.ok) throw new Error(data.error || 'Failed to create project');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to create project');
 
-    projects.unshift(data.project);
-    setCurrentProjectId(data.project.id);
-    projectCompletion[data.project.id] = false;
+      projects.unshift(data.project);
+      setCurrentProjectId(data.project.id);
+      projectCompletion[data.project.id] = false;
 
-    renderProjectList();
-    await loadBoard(currentProjectId);
-    if (currentView === 'bi') loadBiDashboard();
-    if (currentView === 'radar') loadRadarSnapshot();
-  } catch (err) {
-    alert(err.message);
-  }
-};
+      renderProjectList();
+      await loadBoard(currentProjectId);
+      if (currentView === 'bi') loadBiDashboard();
+      if (currentView === 'radar') loadRadarSnapshot();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+}
 
 async function loadActivity(orgId) {
+  if (!activityListEl) return;
   activityListEl.innerHTML = '';
 
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/orgs/${orgId}/activity`,
-      { headers: authHeaders() }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/orgs/${orgId}/activity`, {
+      headers: authHeaders()
+    });
 
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to load activity');
@@ -1100,39 +1539,44 @@ async function loadActivity(orgId) {
    ============================================================ */
 
 async function loadBiDashboard() {
+  // If BI view isn't active, don't do work
+  if (currentView !== 'bi') return;
+
   if (!currentOrgId) {
-    biMeta.textContent = 'Select an organization first.';
+    if (biMeta) biMeta.textContent = 'Select an organization first.';
     if (biChart) biChart.destroy();
     if (biTaskChart) biTaskChart.destroy();
+    setBiDownloadButtonsEnabled(false);
     return;
   }
 
-  biMeta.textContent = 'Loading insights...';
-  biTaskChartArea.classList.add('hidden');
+  if (biMeta) biMeta.textContent = 'Loading insights...';
+  if (biTaskChartArea) biTaskChartArea.classList.add('hidden');
 
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/orgs/${currentOrgId}/bi-summary`,
-      { headers: authHeaders() }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/orgs/${currentOrgId}/bi-summary`, {
+      headers: authHeaders()
+    });
 
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to load BI summary');
 
     const summary = data.projects || [];
+    lastBiSummary = summary; // ✅ store for report export
+
     if (!summary.length) {
-      biMeta.textContent = 'No projects.';
+      if (biMeta) biMeta.textContent = 'No projects.';
       if (biChart) biChart.destroy();
       if (biTaskChart) biTaskChart.destroy();
       projectCompletion = {};
       renderProjectList();
+      setBiDownloadButtonsEnabled(false);
       return;
     }
 
     projectCompletion = {};
     summary.forEach((p) => {
-      const total =
-        (p.in_progress || 0) + (p.review || 0) + (p.complete || 0);
+      const total = (p.in_progress || 0) + (p.review || 0) + (p.complete || 0);
       projectCompletion[p.project_id] = total > 0 && p.complete === total;
     });
     renderProjectList();
@@ -1193,17 +1637,16 @@ async function loadBiDashboard() {
         onClick: async (_, elements) => {
           if (!elements.length) return;
           const idx = elements[0].index;
-          await loadBiTaskDrilldown(
-            summary[idx].project_id,
-            summary[idx].project_name
-          );
+          await loadBiTaskDrilldown(summary[idx].project_id, summary[idx].project_name);
         }
       }
     });
 
-    biMeta.textContent = 'Click a project bar to see its tasks.';
+    if (biMeta) biMeta.textContent = 'Click a project bar to see its tasks.';
+    setBiDownloadButtonsEnabled(true);
   } catch (err) {
-    biMeta.textContent = `Error: ${err.message}`;
+    if (biMeta) biMeta.textContent = `Error: ${err.message}`;
+    setBiDownloadButtonsEnabled(false);
   }
 }
 
@@ -1212,19 +1655,21 @@ async function loadBiDashboard() {
    ============================================================ */
 
 async function loadBiTaskDrilldown(projectId, projectName) {
+  if (!biTaskChartArea || !biTaskChartTitle) return;
   biTaskChartArea.classList.remove('hidden');
   biTaskChartTitle.textContent = `Tasks – ${projectName}`;
+  lastBiDrilldownProjectName = projectName || '';
 
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/projects/${projectId}/board`,
-      { headers: authHeaders() }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/board`, {
+      headers: authHeaders()
+    });
 
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to load project tasks');
 
     const tasks = data.tasks || [];
+    lastBiDrilldownTasks = tasks; // ✅ store for report export
 
     const labels = tasks.map((t) => t.title);
     const daysLeft = tasks.map((t) => {
@@ -1256,9 +1701,7 @@ async function loadBiTaskDrilldown(projectId, projectName) {
             callbacks: {
               afterBody(c) {
                 const t = tasks[c[0].dataIndex];
-                const member =
-                  boardState.members.find((m) => m.id === t.assigned_to) ||
-                  null;
+                const member = (boardState.members || []).find((m) => m.id === t.assigned_to) || null;
                 return [
                   `Due: ${t.due_date ?? 'N/A'}`,
                   `Priority: ${t.priority}`,
@@ -1270,8 +1713,11 @@ async function loadBiTaskDrilldown(projectId, projectName) {
         }
       }
     });
+
+    setBiDownloadButtonsEnabled(true);
   } catch (err) {
-    biMeta.textContent = `Error: ${err.message}`;
+    if (biMeta) biMeta.textContent = `Error: ${err.message}`;
+    setBiDownloadButtonsEnabled(false);
   }
 }
 
@@ -1307,8 +1753,7 @@ function renderFleetView() {
   const totalMembers = members.length;
   const totalTasks = tasks.length;
 
-  const tasksPerPerson =
-    totalMembers > 0 ? (totalTasks / totalMembers).toFixed(1) : '0.0';
+  const tasksPerPerson = totalMembers > 0 ? (totalTasks / totalMembers).toFixed(1) : '0.0';
 
   if (fleetTotalCountEl) fleetTotalCountEl.textContent = String(totalMembers);
   if (fleetProjectCountEl) {
@@ -1328,12 +1773,8 @@ function renderFleetView() {
 
     members.forEach((m) => {
       const memberTasks = tasks.filter((t) => t.assigned_to === m.id);
-      const activeTasks = memberTasks.filter(
-        (t) => !doneColumnIds.includes(t.column_id)
-      );
-      const doneTasks = memberTasks.filter((t) =>
-        doneColumnIds.includes(t.column_id)
-      );
+      const activeTasks = memberTasks.filter((t) => !doneColumnIds.includes(t.column_id));
+      const doneTasks = memberTasks.filter((t) => doneColumnIds.includes(t.column_id));
       const highPriority = memberTasks.filter((t) => t.priority === 'high');
 
       const li = document.createElement('li');
@@ -1384,15 +1825,9 @@ async function handleRadarClick(projectId, taskId = null) {
       selectedTaskId = taskId;
       renderTaskDetail(taskId);
 
-      const card = boardEl.querySelector(
-        `.task-card[data-task-id="${taskId}"]`
-      );
+      const card = boardEl.querySelector(`.task-card[data-task-id="${taskId}"]`);
       if (card) {
-        card.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'center'
-        });
+        card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
       }
     }
   }
@@ -1413,10 +1848,9 @@ async function loadRadarSnapshot() {
   }
 
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/orgs/${currentOrgId}/bi-summary`,
-      { headers: authHeaders() }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/orgs/${currentOrgId}/bi-summary`, {
+      headers: authHeaders()
+    });
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to load portfolio data');
 
@@ -1434,10 +1868,9 @@ async function loadRadarSnapshot() {
     await Promise.all(
       summary.map(async (p) => {
         try {
-          const tRes = await fetch(
-            `${API_BASE_URL}/api/projects/${p.project_id}/bi-tasks`,
-            { headers: authHeaders() }
-          );
+          const tRes = await fetch(`${API_BASE_URL}/api/projects/${p.project_id}/bi-tasks`, {
+            headers: authHeaders()
+          });
           const tData = await safeJson(tRes);
           if (!tRes.ok) return;
 
@@ -1468,9 +1901,7 @@ async function loadRadarSnapshot() {
 
         li.classList.add('radar-clickable');
         li.style.cursor = 'pointer';
-        li.addEventListener('click', () =>
-          handleRadarClick(item.projectId, item.taskId)
-        );
+        li.addEventListener('click', () => handleRadarClick(item.projectId, item.taskId));
 
         radarOverdueList.appendChild(li);
       });
@@ -1503,36 +1934,25 @@ async function loadRadarSnapshot() {
 
       li.classList.add('radar-clickable');
       li.style.cursor = 'pointer';
-      li.addEventListener('click', () =>
-        handleRadarClick(p.project_id, null)
-      );
+      li.addEventListener('click', () => handleRadarClick(p.project_id, null));
 
       radarProjectsList.appendChild(li);
     });
 
     // ---------- Upcoming Deadlines ----------
-    const withDeadline = summary.filter(
-      (p) => typeof p.days_left === 'number'
-    );
-
+    const withDeadline = summary.filter((p) => typeof p.days_left === 'number');
     withDeadline.sort((a, b) => (a.days_left ?? 9999) - (b.days_left ?? 9999));
 
     if (withDeadline.length) {
       withDeadline.slice(0, 5).forEach((p) => {
         const li = document.createElement('li');
-        if (p.days_left === 0) {
-          li.textContent = `${p.project_name}: due today`;
-        } else if (p.days_left > 0) {
-          li.textContent = `${p.project_name}: due in ${p.days_left} day(s)`;
-        } else {
-          li.textContent = `${p.project_name}: timeline not set`;
-        }
+        if (p.days_left === 0) li.textContent = `${p.project_name}: due today`;
+        else if (p.days_left > 0) li.textContent = `${p.project_name}: due in ${p.days_left} day(s)`;
+        else li.textContent = `${p.project_name}: timeline not set`;
 
         li.classList.add('radar-clickable');
         li.style.cursor = 'pointer';
-        li.addEventListener('click', () =>
-          handleRadarClick(p.project_id, null)
-        );
+        li.addEventListener('click', () => handleRadarClick(p.project_id, null));
 
         radarUpcomingList.appendChild(li);
       });
@@ -1555,8 +1975,8 @@ async function loadRadarSnapshot() {
 async function loadBoard(projectId) {
   if (!projectId) {
     boardState = { project: null, columns: [], tasks: [], members: [] };
-    boardProjectNameEl.textContent = 'Select a project to see board.';
-    boardProjectDescEl.textContent = '';
+    if (boardProjectNameEl) boardProjectNameEl.textContent = 'Select a project to see board.';
+    if (boardProjectDescEl) boardProjectDescEl.textContent = '';
     renderBoard();
     renderTaskDetail(null);
     renderFleetView();
@@ -1566,17 +1986,14 @@ async function loadBoard(projectId) {
   // keep "last project" in sync any time we load a board
   setCurrentProjectId(projectId);
 
-  boardProjectNameEl.textContent = 'Loading...';
-  boardProjectDescEl.textContent = '';
-  boardEl.innerHTML = '';
+  if (boardProjectNameEl) boardProjectNameEl.textContent = 'Loading...';
+  if (boardProjectDescEl) boardProjectDescEl.textContent = '';
+  if (boardEl) boardEl.innerHTML = '';
 
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/projects/${projectId}/board`,
-      {
-        headers: authHeaders()
-      }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/board`, {
+      headers: authHeaders()
+    });
 
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to load board');
@@ -1588,28 +2005,24 @@ async function loadBoard(projectId) {
       members: data.members || []
     };
 
-    boardProjectNameEl.textContent = data.project.name;
-    boardProjectDescEl.textContent = data.project.description || '';
+    if (boardProjectNameEl) boardProjectNameEl.textContent = data.project.name;
+    if (boardProjectDescEl) boardProjectDescEl.textContent = data.project.description || '';
 
     const doneColumnIds = boardState.columns
       .filter((c) => /done|complete/i.test(c.name || ''))
       .map((c) => c.id);
     const totalTasks = boardState.tasks.length;
-    const completeTasks = boardState.tasks.filter((t) =>
-      doneColumnIds.includes(t.column_id)
-    ).length;
+    const completeTasks = boardState.tasks.filter((t) => doneColumnIds.includes(t.column_id)).length;
     const allDone = totalTasks > 0 && completeTasks === totalTasks;
-    if (boardState.project) {
-      projectCompletion[boardState.project.id] = allDone;
-    }
+    if (boardState.project) projectCompletion[boardState.project.id] = allDone;
 
     renderProjectList();
     renderBoard();
     renderTaskDetail(null);
     renderFleetView();
   } catch (err) {
-    boardProjectNameEl.textContent = 'Error loading project';
-    boardProjectDescEl.textContent = err.message;
+    if (boardProjectNameEl) boardProjectNameEl.textContent = 'Error loading project';
+    if (boardProjectDescEl) boardProjectDescEl.textContent = err.message;
   }
 }
 
@@ -1620,6 +2033,7 @@ function tasksInColumn(columnId) {
 }
 
 function renderBoard() {
+  if (!boardEl) return;
   boardEl.innerHTML = '';
 
   if (!boardState.project) {
@@ -1747,26 +2161,21 @@ async function moveTaskToColumn(taskId, columnId) {
   if (!taskId || !columnId || !boardState.project) return;
 
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/tasks/${taskId}/move`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders()
-        },
-        body: JSON.stringify({ to_column_id: columnId })
-      }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/move`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
+      body: JSON.stringify({ to_column_id: columnId })
+    });
 
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to move task');
 
     // Reload board data, but stay on same org/project and view
     await loadBoard(boardState.project.id);
-    if (currentView !== 'ops') {
-      setActiveView('ops');
-    }
+    if (currentView !== 'ops') setActiveView('ops');
   } catch (err) {
     alert(err.message);
   } finally {
@@ -1835,9 +2244,7 @@ function initTouchTaskDnD() {
     }
 
     // Once dragging, prevent scrolling
-    if (touchTaskDragState.isDragging) {
-      e.preventDefault();
-    }
+    if (touchTaskDragState.isDragging) e.preventDefault();
   }
 
   async function onTaskTouchEnd(e) {
@@ -1850,10 +2257,7 @@ function initTouchTaskDnD() {
     window.removeEventListener('touchend', onTaskTouchEnd);
     window.removeEventListener('touchcancel', onTaskTouchEnd);
 
-    if (!isDragging) {
-      // It was just a tap; let the click handler open the detail panel.
-      return;
-    }
+    if (!isDragging) return; // tap only
 
     e.preventDefault();
     card.classList.remove('dragging');
@@ -1913,11 +2317,8 @@ function initTouchProjectDnD() {
     if (touchProjectDragState.isDragging) {
       e.preventDefault();
       const afterElement = getProjectAfterElement(projectListEl, touch.clientY);
-      if (!afterElement) {
-        projectListEl.appendChild(touchProjectDragState.li);
-      } else {
-        projectListEl.insertBefore(touchProjectDragState.li, afterElement);
-      }
+      if (!afterElement) projectListEl.appendChild(touchProjectDragState.li);
+      else projectListEl.insertBefore(touchProjectDragState.li, afterElement);
     }
   }
 
@@ -1943,64 +2344,62 @@ function initTouchProjectDnD() {
    ADD COLUMNS & TASKS
    ============================================================ */
 
-btnAddColumn.onclick = async () => {
-  if (!boardState.project) return alert('Select a project first.');
+if (btnAddColumn) {
+  btnAddColumn.onclick = async () => {
+    if (!boardState.project) return alert('Select a project first.');
 
-  const name = prompt('Column name:');
-  if (!name) return;
+    const name = prompt('Column name:');
+    if (!name) return;
 
-  try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/projects/${boardState.project.id}/columns`,
-      {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/projects/${boardState.project.id}/columns`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...authHeaders()
         },
         body: JSON.stringify({ name })
-      }
-    );
+      });
 
-    const data = await safeJson(res);
-    if (!res.ok) throw new Error(data.error || 'Failed to create column');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to create column');
 
-    await loadBoard(boardState.project.id);
-  } catch (err) {
-    alert(err.message);
-  }
-};
+      await loadBoard(boardState.project.id);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+}
 
-btnAddTask.onclick = async () => {
-  if (!boardState.project) return alert('Select a project first.');
-  if (!boardState.columns.length) return alert('Add a column first.');
+if (btnAddTask) {
+  btnAddTask.onclick = async () => {
+    if (!boardState.project) return alert('Select a project first.');
+    if (!boardState.columns.length) return alert('Add a column first.');
 
-  const title = prompt('Task title:');
-  if (!title) return;
+    const title = prompt('Task title:');
+    if (!title) return;
 
-  const columnId = boardState.columns[0].id;
+    const columnId = boardState.columns[0].id;
 
-  try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/projects/${boardState.project.id}/tasks`,
-      {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/projects/${boardState.project.id}/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...authHeaders()
         },
         body: JSON.stringify({ title, column_id: columnId })
-      }
-    );
+      });
 
-    const data = await safeJson(res);
-    if (!res.ok) throw new Error(data.error || 'Failed to create task');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to create task');
 
-    await loadBoard(boardState.project.id);
-  } catch (err) {
-    alert(err.message);
-  }
-};
+      await loadBoard(boardState.project.id);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+}
 
 /* ============================================================
    TASK DETAIL PANEL
@@ -2008,123 +2407,121 @@ btnAddTask.onclick = async () => {
 
 function renderTaskDetail(taskId) {
   if (!taskId) {
-    taskDetailPanel.classList.add('hidden');
+    if (taskDetailPanel) taskDetailPanel.classList.add('hidden');
     selectedTaskId = null;
     return;
   }
 
   const task = boardState.tasks.find((t) => t.id === taskId);
   if (!task) {
-    taskDetailPanel.classList.add('hidden');
+    if (taskDetailPanel) taskDetailPanel.classList.add('hidden');
     selectedTaskId = null;
     return;
   }
 
   selectedTaskId = taskId;
-  taskDetailPanel.classList.remove('hidden');
+  if (taskDetailPanel) taskDetailPanel.classList.remove('hidden');
 
-  detailTitleEl.textContent = task.title;
+  if (detailTitleEl) detailTitleEl.textContent = task.title;
 
   const col = boardState.columns.find((c) => c.id === task.column_id);
   const colName = col ? col.name : 'N/A';
-  detailMetaEl.textContent = `Column: ${colName} • Priority: ${task.priority}`;
+  if (detailMetaEl) detailMetaEl.textContent = `Column: ${colName} • Priority: ${task.priority}`;
 
-  detailDescriptionEl.textContent = task.description || '';
+  if (detailDescriptionEl) detailDescriptionEl.textContent = task.description || '';
 
-  detailInputTitle.value = task.title;
-  detailInputDesc.value = task.description || '';
-  detailInputPriority.value = task.priority || 'medium';
-  detailInputDue.value = task.due_date || '';
+  if (detailInputTitle) detailInputTitle.value = task.title;
+  if (detailInputDesc) detailInputDesc.value = task.description || '';
+  if (detailInputPriority) detailInputPriority.value = task.priority || 'medium';
+  if (detailInputDue) detailInputDue.value = task.due_date || '';
 
-  detailInputAssignee.innerHTML = '<option value="">Unassigned</option>';
-  boardState.members.forEach((m) => {
-    const opt = document.createElement('option');
-    opt.value = m.id;
-    opt.textContent = `${m.name} (${m.email})`;
-    if (m.id === task.assigned_to) opt.selected = true;
-    detailInputAssignee.appendChild(opt);
-  });
+  if (detailInputAssignee) {
+    detailInputAssignee.innerHTML = '<option value="">Unassigned</option>';
+    (boardState.members || []).forEach((m) => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = `${m.name} (${m.email})`;
+      if (m.id === task.assigned_to) opt.selected = true;
+      detailInputAssignee.appendChild(opt);
+    });
+  }
 
-  detailStatus.textContent = '';
+  if (detailStatus) detailStatus.textContent = '';
 
   loadComments(taskId);
-  if (detailAttachmentsList) {
-    loadAttachments(taskId);
-  }
+  if (detailAttachmentsList) loadAttachments(taskId);
 }
 
-btnCloseDetail.onclick = () => renderTaskDetail(null);
+if (btnCloseDetail) btnCloseDetail.onclick = () => renderTaskDetail(null);
 
 /* ============================================================
    SAVE TASK (BOTTOM BUTTON)
    ============================================================ */
 
-detailSaveBtn.onclick = async () => {
-  if (!selectedTaskId) return;
-  detailStatus.textContent = 'Saving...';
+if (detailSaveBtn) {
+  detailSaveBtn.onclick = async () => {
+    if (!selectedTaskId) return;
+    if (detailStatus) detailStatus.textContent = 'Saving...';
 
-  const payload = {
-    title: detailInputTitle.value.trim(),
-    description: detailInputDesc.value.trim(),
-    priority: detailInputPriority.value,
-    due_date: detailInputDue.value || null,
-    assigned_to: detailInputAssignee.value || null
-  };
+    const payload = {
+      title: detailInputTitle.value.trim(),
+      description: detailInputDesc.value.trim(),
+      priority: detailInputPriority.value,
+      due_date: detailInputDue.value || null,
+      assigned_to: detailInputAssignee.value || null
+    };
 
-  try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/tasks/${selectedTaskId}`,
-      {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/tasks/${selectedTaskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...authHeaders()
         },
         body: JSON.stringify(payload)
-      }
-    );
+      });
 
-    const data = await safeJson(res);
-    if (!res.ok) throw new Error(data.error || 'Failed to update task');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to update task');
 
-    const i = boardState.tasks.findIndex((t) => t.id === selectedTaskId);
-    if (i !== -1) boardState.tasks[i] = data.task;
+      const i = boardState.tasks.findIndex((t) => t.id === selectedTaskId);
+      if (i !== -1) boardState.tasks[i] = data.task;
 
-    detailStatus.textContent = 'Saved.';
-    renderBoard();
-    renderTaskDetail(selectedTaskId);
-    renderFleetView();
-  } catch (err) {
-    detailStatus.textContent = `Error: ${err.message}`;
-  }
-};
+      if (detailStatus) detailStatus.textContent = 'Saved.';
+      renderBoard();
+      renderTaskDetail(selectedTaskId);
+      renderFleetView();
+    } catch (err) {
+      if (detailStatus) detailStatus.textContent = `Error: ${err.message}`;
+    }
+  };
+}
 
 /* ============================================================
    DELETE TASK
    ============================================================ */
 
-detailDeleteTaskBtn.onclick = async () => {
-  if (!selectedTaskId) return;
-  if (!confirm('Delete this task permanently?')) return;
+if (detailDeleteTaskBtn) {
+  detailDeleteTaskBtn.onclick = async () => {
+    if (!selectedTaskId) return;
+    if (!confirm('Delete this task permanently?')) return;
 
-  try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/tasks/${selectedTaskId}`,
-      {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/tasks/${selectedTaskId}`, {
         method: 'DELETE',
         headers: authHeaders()
-      }
-    );
+      });
 
-    const data = await safeJson(res);
-    if (!res.ok) throw new Error(data.error || 'Failed to delete task');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to delete task');
 
-    await loadBoard(boardState.project.id);
-    renderTaskDetail(null);
-  } catch (err) {
-    alert(err.message);
-  }
-};
+      await loadBoard(boardState.project.id);
+      renderTaskDetail(null);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+}
 
 /* ============================================================
    DELETE PROJECT
@@ -2136,13 +2533,10 @@ if (btnDeleteProject) {
     if (!confirm('Delete this project and ALL its tasks?')) return;
 
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/projects/${currentProjectId}`,
-        {
-          method: 'DELETE',
-          headers: authHeaders()
-        }
-      );
+      const res = await fetch(`${API_BASE_URL}/api/projects/${currentProjectId}`, {
+        method: 'DELETE',
+        headers: authHeaders()
+      });
 
       const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to delete project');
@@ -2154,21 +2548,14 @@ if (btnDeleteProject) {
         setCurrentProjectId(projects[0].id);
       } else {
         setCurrentProjectId(null);
-        boardState = {
-          project: null,
-          columns: [],
-          tasks: [],
-          members: []
-        };
+        boardState = { project: null, columns: [], tasks: [], members: [] };
         renderBoard();
         renderTaskDetail(null);
         renderFleetView();
       }
 
       renderProjectList();
-      if (currentProjectId) {
-        await loadBoard(currentProjectId);
-      }
+      if (currentProjectId) await loadBoard(currentProjectId);
 
       if (currentView === 'bi') loadBiDashboard();
       if (currentView === 'radar') loadRadarSnapshot();
@@ -2186,14 +2573,12 @@ async function loadAttachments(taskId) {
   if (!detailAttachmentsList) return;
 
   detailAttachmentsList.innerHTML = '';
-
   if (!taskId) return;
 
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/tasks/${taskId}/attachments`,
-      { headers: authHeaders() }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/attachments`, {
+      headers: authHeaders()
+    });
 
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to load attachments');
@@ -2211,8 +2596,7 @@ async function loadAttachments(taskId) {
       const li = document.createElement('li');
       li.classList.add('attachment-item');
 
-      const urlPath =
-        a.url || (a.filename ? `/uploads/${a.filename}` : '#');
+      const urlPath = a.url || (a.filename ? `/uploads/${a.filename}` : '#');
 
       const link = document.createElement('a');
       link.href = `${API_BASE_URL}${urlPath}`;
@@ -2223,13 +2607,8 @@ async function loadAttachments(taskId) {
       const metaSpan = document.createElement('span');
       metaSpan.classList.add('attachment-meta');
       const sizeKb = a.size ? `${Math.round(a.size / 1024)} KB` : '';
-      const ts = a.created_at
-        ? new Date(a.created_at).toLocaleString()
-        : '';
-      metaSpan.textContent = [
-        sizeKb && `(${sizeKb})`,
-        ts && ` • ${ts}`
-      ].filter(Boolean).join('');
+      const ts = a.created_at ? new Date(a.created_at).toLocaleString() : '';
+      metaSpan.textContent = [sizeKb && `(${sizeKb})`, ts && ` • ${ts}`].filter(Boolean).join('');
 
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
@@ -2240,38 +2619,26 @@ async function loadAttachments(taskId) {
         if (!confirm('Delete this attachment?')) return;
 
         try {
-          if (detailAttachmentStatus) {
-            detailAttachmentStatus.textContent = 'Deleting attachment...';
-          }
+          if (detailAttachmentStatus) detailAttachmentStatus.textContent = 'Deleting attachment...';
 
-          const delRes = await fetch(
-            `${API_BASE_URL}/api/attachments/${a.id}`,
-            {
-              method: 'DELETE',
-              headers: authHeaders()
-            }
-          );
+          const delRes = await fetch(`${API_BASE_URL}/api/attachments/${a.id}`, {
+            method: 'DELETE',
+            headers: authHeaders()
+          });
           const delData = await safeJson(delRes);
-          if (!delRes.ok) {
-            throw new Error(delData.error || 'Failed to delete attachment');
-          }
+          if (!delRes.ok) throw new Error(delData.error || 'Failed to delete attachment');
 
           await loadAttachments(taskId);
 
           if (detailAttachmentStatus) {
             detailAttachmentStatus.textContent = 'Attachment deleted.';
             setTimeout(() => {
-              if (detailAttachmentStatus) {
-                detailAttachmentStatus.textContent = '';
-              }
+              if (detailAttachmentStatus) detailAttachmentStatus.textContent = '';
             }, 2000);
           }
         } catch (err) {
-          if (detailAttachmentStatus) {
-            detailAttachmentStatus.textContent = `Error: ${err.message}`;
-          } else {
-            alert(err.message);
-          }
+          if (detailAttachmentStatus) detailAttachmentStatus.textContent = `Error: ${err.message}`;
+          else alert(err.message);
         }
       });
 
@@ -2293,13 +2660,13 @@ async function loadAttachments(taskId) {
    ============================================================ */
 
 async function loadComments(taskId) {
+  if (!detailCommentsList) return;
   detailCommentsList.innerHTML = '';
 
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/tasks/${taskId}/comments`,
-      { headers: authHeaders() }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/comments`, {
+      headers: authHeaders()
+    });
 
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to load comments');
@@ -2326,35 +2693,34 @@ async function loadComments(taskId) {
   }
 }
 
-detailCommentForm.onsubmit = async (e) => {
-  e.preventDefault();
-  if (!selectedTaskId) return;
+if (detailCommentForm) {
+  detailCommentForm.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedTaskId) return;
 
-  const body = detailCommentBody.value.trim();
-  if (!body) return;
+    const body = detailCommentBody.value.trim();
+    if (!body) return;
 
-  try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/tasks/${selectedTaskId}/comments`,
-      {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/tasks/${selectedTaskId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...authHeaders()
         },
         body: JSON.stringify({ body })
-      }
-    );
+      });
 
-    const data = await safeJson(res);
-    if (!res.ok) throw new Error(data.error || 'Failed to add comment');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to add comment');
 
-    detailCommentBody.value = '';
-    loadComments(selectedTaskId);
-  } catch (err) {
-    alert(err.message);
-  }
-};
+      detailCommentBody.value = '';
+      loadComments(selectedTaskId);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+}
 
 /* ============================================================
    ATTACHMENT UPLOAD
@@ -2367,28 +2733,21 @@ if (detailAttachmentForm && detailAttachmentFile) {
 
     const file = detailAttachmentFile.files[0];
     if (!file) {
-      if (detailAttachmentStatus) {
-        detailAttachmentStatus.textContent = 'Please choose a file first.';
-      }
+      if (detailAttachmentStatus) detailAttachmentStatus.textContent = 'Please choose a file first.';
       return;
     }
 
     try {
-      if (detailAttachmentStatus) {
-        detailAttachmentStatus.textContent = 'Uploading attachment...';
-      }
+      if (detailAttachmentStatus) detailAttachmentStatus.textContent = 'Uploading attachment...';
 
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch(
-        `${API_BASE_URL}/api/tasks/${selectedTaskId}/attachments`,
-        {
-          method: 'POST',
-          headers: authHeaders(), // don't set Content-Type manually
-          body: formData
-        }
-      );
+      const res = await fetch(`${API_BASE_URL}/api/tasks/${selectedTaskId}/attachments`, {
+        method: 'POST',
+        headers: authHeaders(), // don't set Content-Type manually
+        body: formData
+      });
 
       const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to upload attachment');
@@ -2401,17 +2760,12 @@ if (detailAttachmentForm && detailAttachmentFile) {
       if (detailAttachmentStatus) {
         detailAttachmentStatus.textContent = 'Attachment uploaded.';
         setTimeout(() => {
-          if (detailAttachmentStatus) {
-            detailAttachmentStatus.textContent = '';
-          }
+          if (detailAttachmentStatus) detailAttachmentStatus.textContent = '';
         }, 2000);
       }
     } catch (err) {
-      if (detailAttachmentStatus) {
-        detailAttachmentStatus.textContent = `Error: ${err.message}`;
-      } else {
-        alert(err.message);
-      }
+      if (detailAttachmentStatus) detailAttachmentStatus.textContent = `Error: ${err.message}`;
+      else alert(err.message);
     }
   };
 }
@@ -2432,10 +2786,35 @@ if (detailAttachmentForm && detailAttachmentFile) {
 
   window.addEventListener(eventName, handler, false);
   document.addEventListener(eventName, handler, false);
-  if (document.body) {
-    document.body.addEventListener(eventName, handler, false);
-  }
+  if (document.body) document.body.addEventListener(eventName, handler, false);
 });
+
+/* ============================================================
+   BI EXPORT BUTTON WIRES
+   ============================================================ */
+
+if (btnBiDownloadPdf) {
+  btnBiDownloadPdf.addEventListener('click', () => {
+    try {
+      downloadActiveBiAsPdf();
+    } catch (e) {
+      alert(`PDF export failed: ${e.message}`);
+    }
+  });
+}
+
+if (btnBiDownloadSvg) {
+  btnBiDownloadSvg.addEventListener('click', () => {
+    try {
+      downloadActiveBiAsSvg();
+    } catch (e) {
+      alert(`SVG export failed: ${e.message}`);
+    }
+  });
+}
+
+// default state (disabled until a chart exists)
+setBiDownloadButtonsEnabled(false);
 
 /* ============================================================
    INIT
