@@ -13,13 +13,6 @@ const LAST_VIEW_KEY = 'xymz_last_view';
 const LAST_ORG_KEY = 'xymz_last_org_id';
 const LAST_PROJECT_KEY = 'xymz_last_project_id';
 
-// (Optional) persist gantt UX settings
-const GANTT_DAY_WIDTH_KEY = 'xymz_gantt_day_width';
-const GANTT_HIDE_DONE_KEY = 'xymz_gantt_hide_done';
-
-// ✅ NEW: store task start dates (frontend-managed)
-const TASK_START_PREFIX = 'xymz_task_start_';
-
 /* ============================================================
    ELEMENT REFERENCES
    ============================================================ */
@@ -87,13 +80,7 @@ const detailForm = document.getElementById('detail-form');
 const detailInputTitle = document.getElementById('detail-input-title');
 const detailInputDesc = document.getElementById('detail-input-desc');
 const detailInputPriority = document.getElementById('detail-input-priority');
-
-// ✅ NEW: Start date input (frontend-managed)
-const detailInputStart = document.getElementById('detail-input-start');
-
-// NOTE: existing ID remains, but label is "End date"
 const detailInputDue = document.getElementById('detail-input-due');
-
 const detailInputAssignee = document.getElementById('detail-input-assignee');
 const detailStatus = document.getElementById('detail-status');
 
@@ -123,24 +110,6 @@ const biView = document.getElementById('bi-view');
 // NEW: Fleet & Radar views
 const fleetView = document.getElementById('fleet-view');
 const radarView = document.getElementById('radar-view');
-
-// NEW: Gantt view
-const ganttView = document.getElementById('gantt-view');
-const ganttMetaEl = document.getElementById('gantt-meta');
-const ganttEmptyEl = document.getElementById('gantt-empty');
-const ganttTaskListEl = document.getElementById('gantt-task-list');
-
-// Header is now a container with 2 rows inside (months + days)
-const ganttTimelineHeaderEl = document.getElementById('gantt-timeline-header');
-const ganttTimelineMonthsEl = document.getElementById('gantt-timeline-months');
-const ganttTimelineDaysEl = document.getElementById('gantt-timeline-days');
-
-const ganttTimelineEl = document.getElementById('gantt-timeline');
-
-const ganttBtnToday = document.getElementById('gantt-btn-today');
-const ganttBtnZoomOut = document.getElementById('gantt-btn-zoom-out');
-const ganttBtnZoomIn = document.getElementById('gantt-btn-zoom-in');
-const ganttToggleCompleted = document.getElementById('gantt-toggle-completed');
 
 // XYMZ.Fleet elements (match index.html IDs)
 const fleetListEl = document.getElementById('fleet-list');
@@ -195,26 +164,6 @@ let currentView = 'suite';
 // projectCompletion[projectId] = true/false
 let projectCompletion = {};
 let projectListDnDInitialized = false;
-
-// Gantt state (frontend-managed)
-let ganttState = {
-  dayWidth: 24,
-  hideCompleted: false,
-  anchorDate: null // if set, the timeline range will be centered around this date
-};
-
-// ✅ Enhancement: stable ref so Gantt scroll sync does not stack listeners on re-render
-let ganttScrollSyncHandler = null;
-
-try {
-  const savedW = Number(localStorage.getItem(GANTT_DAY_WIDTH_KEY));
-  if (!Number.isNaN(savedW) && savedW >= 10 && savedW <= 60) ganttState.dayWidth = savedW;
-
-  const savedHide = localStorage.getItem(GANTT_HIDE_DONE_KEY);
-  if (savedHide === '1') ganttState.hideCompleted = true;
-} catch {
-  // ignore storage errors
-}
 
 /* ============================================================
    HELPERS
@@ -325,16 +274,16 @@ function setBrandForView(view) {
     brandSubtitle.textContent = 'Live risk signals & delivery health.';
   } else if (view === 'ops') {
     brandTitle.textContent = 'XYMZ.Ops';
-    brandSubtitle.textContent = 'Operational boards for shared client delivery.';
-  } else if (view === 'gantt') {
-    brandTitle.textContent = 'XYMZ.Gantt';
-    brandSubtitle.textContent = 'Timeline planning from your Ops tasks.';
+    brandSubtitle.textContent =
+      'Operational boards for shared client delivery.';
   } else if (view === 'bi') {
     brandTitle.textContent = 'XYMZ.BI';
-    brandSubtitle.textContent = 'Project insights & portfolio intelligence.';
+    brandSubtitle.textContent =
+      'Project insights & portfolio intelligence.';
   } else {
     brandTitle.textContent = 'XYMZ.Suite';
-    brandSubtitle.textContent = 'Shared workspaces for agencies & clients.';
+    brandSubtitle.textContent =
+      'Shared workspaces for agencies & clients.';
   }
 }
 
@@ -345,7 +294,6 @@ function setThemeForView(view) {
   body.classList.remove(
     'theme-suite',
     'theme-ops',
-    'theme-gantt',
     'theme-bi',
     'theme-fleet',
     'theme-radar'
@@ -353,8 +301,6 @@ function setThemeForView(view) {
 
   if (view === 'ops') {
     body.classList.add('theme-ops');
-  } else if (view === 'gantt') {
-    body.classList.add('theme-gantt');
   } else if (view === 'bi') {
     body.classList.add('theme-bi');
   } else if (view === 'fleet') {
@@ -392,7 +338,6 @@ function setActiveView(view) {
   // Sections
   if (suiteView) suiteView.classList.toggle('hidden', view !== 'suite');
   if (opsView) opsView.classList.toggle('hidden', view !== 'ops');
-  if (ganttView) ganttView.classList.toggle('hidden', view !== 'gantt');
   if (biView) biView.classList.toggle('hidden', view !== 'bi');
   if (fleetView) fleetView.classList.toggle('hidden', view !== 'fleet');
   if (radarView) radarView.classList.toggle('hidden', view !== 'radar');
@@ -408,8 +353,6 @@ function setActiveView(view) {
     renderFleetView();
   } else if (view === 'radar') {
     loadRadarSnapshot();
-  } else if (view === 'gantt') {
-    renderGanttView();
   }
 }
 
@@ -600,7 +543,6 @@ logoutBtn.onclick = () => {
   document.body.classList.remove(
     'theme-suite',
     'theme-ops',
-    'theme-gantt',
     'theme-bi',
     'theme-fleet',
     'theme-radar'
@@ -714,7 +656,6 @@ async function loadSession() {
     document.body.classList.remove(
       'theme-suite',
       'theme-ops',
-      'theme-gantt',
       'theme-bi',
       'theme-fleet',
       'theme-radar'
@@ -778,7 +719,6 @@ async function loadSession() {
     document.body.classList.remove(
       'theme-suite',
       'theme-ops',
-      'theme-gantt',
       'theme-bi',
       'theme-fleet',
       'theme-radar'
@@ -854,14 +794,12 @@ orgSelect.onchange = async () => {
   renderBoard();
   renderTaskDetail(null);
   renderFleetView();
-  renderGanttView();
 
   await loadProjectsForOrg(currentOrgId);
   await loadActivity(currentOrgId);
 
   if (currentView === 'bi') loadBiDashboard();
   if (currentView === 'radar') loadRadarSnapshot();
-  if (currentView === 'gantt') renderGanttView();
 };
 
 btnNewOrg.onclick = async () => {
@@ -892,7 +830,6 @@ btnNewOrg.onclick = async () => {
     await loadActivity(currentOrgId);
     if (currentView === 'bi') loadBiDashboard();
     if (currentView === 'radar') loadRadarSnapshot();
-    if (currentView === 'gantt') renderGanttView();
   } catch (err) {
     alert(err.message);
   }
@@ -996,7 +933,6 @@ async function loadProjectsForOrg(orgId) {
       renderBoard();
       renderTaskDetail(null);
       renderFleetView();
-      renderGanttView();
     }
   } catch (err) {
     projectListEl.textContent = `Error: ${err.message}`;
@@ -1052,7 +988,6 @@ function renderProjectList() {
       setCurrentProjectId(p.id);
       renderProjectList();
       await loadBoard(currentProjectId);
-      if (currentView === 'gantt') renderGanttView();
     });
 
     // Desktop drag & drop
@@ -1121,7 +1056,6 @@ btnNewProject.onclick = async () => {
     await loadBoard(currentProjectId);
     if (currentView === 'bi') loadBiDashboard();
     if (currentView === 'radar') loadRadarSnapshot();
-    if (currentView === 'gantt') renderGanttView();
   } catch (err) {
     alert(err.message);
   }
@@ -1326,7 +1260,7 @@ async function loadBiTaskDrilldown(projectId, projectName) {
                   boardState.members.find((m) => m.id === t.assigned_to) ||
                   null;
                 return [
-                  `End: ${t.due_date ?? 'N/A'}`,
+                  `Due: ${t.due_date ?? 'N/A'}`,
                   `Priority: ${t.priority}`,
                   `Assigned: ${member ? member.name : 'None'}`
                 ];
@@ -1429,6 +1363,10 @@ function renderFleetView() {
    XYMZ.Radar – Portfolio snapshot + click-through
    ============================================================ */
 
+/**
+ * When you click a Radar item, jump into Ops.
+ * If taskId is provided, open that specific task.
+ */
 async function handleRadarClick(projectId, taskId = null) {
   if (!projectId) return;
 
@@ -1622,7 +1560,6 @@ async function loadBoard(projectId) {
     renderBoard();
     renderTaskDetail(null);
     renderFleetView();
-    renderGanttView();
     return;
   }
 
@@ -1651,9 +1588,6 @@ async function loadBoard(projectId) {
       members: data.members || []
     };
 
-    // ✅ NEW: hydrate task start dates from localStorage into boardState.tasks
-    hydrateTaskStartDates();
-
     boardProjectNameEl.textContent = data.project.name;
     boardProjectDescEl.textContent = data.project.description || '';
 
@@ -1673,8 +1607,6 @@ async function loadBoard(projectId) {
     renderBoard();
     renderTaskDetail(null);
     renderFleetView();
-
-    if (currentView === 'gantt') renderGanttView();
   } catch (err) {
     boardProjectNameEl.textContent = 'Error loading project';
     boardProjectDescEl.textContent = err.message;
@@ -1772,7 +1704,6 @@ function renderTaskCard(task) {
 
   const dueSpan = document.createElement('span');
   if (task.due_date) {
-    // due_date is treated as End date
     dueSpan.textContent = new Date(task.due_date).toLocaleDateString();
   }
 
@@ -2035,7 +1966,6 @@ btnAddColumn.onclick = async () => {
     if (!res.ok) throw new Error(data.error || 'Failed to create column');
 
     await loadBoard(boardState.project.id);
-    if (currentView === 'gantt') renderGanttView();
   } catch (err) {
     alert(err.message);
   }
@@ -2067,7 +1997,6 @@ btnAddTask.onclick = async () => {
     if (!res.ok) throw new Error(data.error || 'Failed to create task');
 
     await loadBoard(boardState.project.id);
-    if (currentView === 'gantt') renderGanttView();
   } catch (err) {
     alert(err.message);
   }
@@ -2105,14 +2034,6 @@ function renderTaskDetail(taskId) {
   detailInputTitle.value = task.title;
   detailInputDesc.value = task.description || '';
   detailInputPriority.value = task.priority || 'medium';
-
-  // ✅ NEW: load frontend-managed start date
-  if (detailInputStart) {
-    const startISO = getTaskStartISO(task.id);
-    detailInputStart.value = startISO || '';
-  }
-
-  // End date (backend due_date)
   detailInputDue.value = task.due_date || '';
 
   detailInputAssignee.innerHTML = '<option value="">Unassigned</option>';
@@ -2142,36 +2063,15 @@ detailSaveBtn.onclick = async () => {
   if (!selectedTaskId) return;
   detailStatus.textContent = 'Saving...';
 
-  const startISO = detailInputStart ? (detailInputStart.value || '').trim() : '';
-  const endISO = (detailInputDue.value || '').trim(); // End date (due_date)
-
-  // Validation: if both set, start must be <= end
-  if (startISO && endISO) {
-    const s = parseISODateOnly(startISO);
-    const e = parseISODateOnly(endISO);
-    if (s && e && s.getTime() > e.getTime()) {
-      detailStatus.textContent = 'Error: Start date must be on/before End date.';
-      return;
-    }
-  }
-
   const payload = {
     title: detailInputTitle.value.trim(),
     description: detailInputDesc.value.trim(),
     priority: detailInputPriority.value,
-    due_date: endISO || null, // still stored in backend field
+    due_date: detailInputDue.value || null,
     assigned_to: detailInputAssignee.value || null
   };
 
   try {
-    // Save start date (frontend-managed)
-    if (startISO) {
-      setTaskStartISO(selectedTaskId, startISO);
-    } else {
-      clearTaskStartISO(selectedTaskId);
-    }
-
-    // Save end date + other fields to backend
     const res = await fetch(
       `${API_BASE_URL}/api/tasks/${selectedTaskId}`,
       {
@@ -2190,14 +2090,10 @@ detailSaveBtn.onclick = async () => {
     const i = boardState.tasks.findIndex((t) => t.id === selectedTaskId);
     if (i !== -1) boardState.tasks[i] = data.task;
 
-    // re-hydrate start date onto the updated task object
-    hydrateTaskStartDates();
-
     detailStatus.textContent = 'Saved.';
     renderBoard();
     renderTaskDetail(selectedTaskId);
     renderFleetView();
-    if (currentView === 'gantt') renderGanttView();
   } catch (err) {
     detailStatus.textContent = `Error: ${err.message}`;
   }
@@ -2223,12 +2119,8 @@ detailDeleteTaskBtn.onclick = async () => {
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to delete task');
 
-    // ✅ NEW: remove stored start date too
-    clearTaskStartISO(selectedTaskId);
-
     await loadBoard(boardState.project.id);
     renderTaskDetail(null);
-    if (currentView === 'gantt') renderGanttView();
   } catch (err) {
     alert(err.message);
   }
@@ -2271,7 +2163,6 @@ if (btnDeleteProject) {
         renderBoard();
         renderTaskDetail(null);
         renderFleetView();
-        renderGanttView();
       }
 
       renderProjectList();
@@ -2281,7 +2172,6 @@ if (btnDeleteProject) {
 
       if (currentView === 'bi') loadBiDashboard();
       if (currentView === 'radar') loadRadarSnapshot();
-      if (currentView === 'gantt') renderGanttView();
     } catch (err) {
       alert(err.message);
     }
@@ -2402,7 +2292,6 @@ async function loadAttachments(taskId) {
    COMMENTS
    ============================================================ */
 
-// ✅ Enhancement: remove innerHTML usage to prevent XSS via comment bodies/author names
 async function loadComments(taskId) {
   detailCommentsList.innerHTML = '';
 
@@ -2425,27 +2314,9 @@ async function loadComments(taskId) {
 
     comments.forEach((c) => {
       const li = document.createElement('li');
-
-      const header = document.createElement('div');
-
-      const strong = document.createElement('strong');
-      strong.textContent = c.author_name || 'Unknown';
-
-      const ts = document.createElement('span');
-      ts.classList.add('muted');
-      const when = c.created_at ? new Date(c.created_at).toLocaleString() : '';
-      ts.textContent = when ? ` (${when})` : '';
-
-      header.appendChild(strong);
-      header.appendChild(ts);
-
-      const body = document.createElement('div');
-      body.style.marginTop = '6px';
-      body.textContent = c.body || '';
-
-      li.appendChild(header);
-      li.appendChild(body);
-
+      const ts = new Date(c.created_at).toLocaleString();
+      li.innerHTML = `<strong>${c.author_name}</strong>
+        <span class="muted">(${ts})</span><br/>${c.body}`;
       detailCommentsList.appendChild(li);
     });
   } catch (err) {
@@ -2544,636 +2415,6 @@ if (detailAttachmentForm && detailAttachmentFile) {
     }
   };
 }
-
-/* ============================================================
-   XYMZ.Gantt – Task Start Date (frontend-managed)
-   ============================================================ */
-
-   function taskStartKey(taskId) {
-    return `${TASK_START_PREFIX}${taskId}`;
-  }
-  
-  function getTaskStartISO(taskId) {
-    try {
-      const v = localStorage.getItem(taskStartKey(taskId));
-      return v || null;
-    } catch {
-      return null;
-    }
-  }
-  
-  function setTaskStartISO(taskId, iso) {
-    try {
-      if (!taskId) return;
-      if (!iso) {
-        localStorage.removeItem(taskStartKey(taskId));
-        return;
-      }
-      localStorage.setItem(taskStartKey(taskId), iso);
-    } catch {
-      // ignore
-    }
-  }
-  
-  function clearTaskStartISO(taskId) {
-    try {
-      if (!taskId) return;
-      localStorage.removeItem(taskStartKey(taskId));
-    } catch {
-      // ignore
-    }
-  }
-  
-  function hydrateTaskStartDates() {
-    (boardState.tasks || []).forEach((t) => {
-      const s = getTaskStartISO(t.id);
-      if (s) t._start_date = s;
-      else delete t._start_date;
-    });
-  }
-  
-  /* ============================================================
-     XYMZ.Gantt – Frontend-managed timeline view (Start + End)
-     ============================================================ */
-  
-  // Date helpers for YYYY-MM-DD (avoid timezone drift)
-  function startOfDay(d) {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x;
-  }
-  
-  function parseISODateOnly(iso) {
-    if (!iso) return null;
-    const parts = String(iso).split('-');
-    if (parts.length < 3) return null;
-    const y = Number(parts[0]);
-    const m = Number(parts[1]);
-    const d = Number(parts[2]);
-    if ([y, m, d].some((n) => Number.isNaN(n))) return null;
-    return new Date(y, m - 1, d, 0, 0, 0, 0);
-  }
-  
-  function toISODateOnly(d) {
-    if (!d) return null;
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
-  
-  function addDays(d, n) {
-    const x = startOfDay(d);
-    x.setDate(x.getDate() + n);
-    return x;
-  }
-  
-  function diffDays(a, b) {
-    const ms = startOfDay(a).getTime() - startOfDay(b).getTime();
-    return Math.round(ms / (1000 * 60 * 60 * 24));
-  }
-  
-  function getDoneColumnIds() {
-    return (boardState.columns || [])
-      .filter((c) => /done|complete/i.test(c.name || ''))
-      .map((c) => c.id);
-  }
-  
-  function isTaskDone(task) {
-    const doneIds = getDoneColumnIds();
-    return doneIds.includes(task.column_id);
-  }
-  
-  function estimateDurationDays(task) {
-    const p = task.priority || 'medium';
-    if (p === 'high') return 5;
-    if (p === 'low') return 2;
-    return 3;
-  }
-  
-  function getTaskRange(task) {
-    const endD = parseISODateOnly(task.due_date);
-    if (!endD) return null;
-  
-    const startISO = task._start_date || getTaskStartISO(task.id);
-    const startD = parseISODateOnly(startISO);
-  
-    if (startD) {
-      const s = startOfDay(startD);
-      const e = startOfDay(endD);
-      if (s.getTime() > e.getTime()) {
-        return { start: e, end: s, derived: false };
-      }
-      return { start: s, end: e, derived: false };
-    }
-  
-    const dur = estimateDurationDays(task);
-    const derivedStart = addDays(endD, -(dur - 1));
-    return { start: startOfDay(derivedStart), end: startOfDay(endD), derived: true };
-  }
-  
-  function formatShortDate(d) {
-    if (!d) return '—';
-    return d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
-  }
-  
-  function clearGanttDom() {
-    if (ganttTaskListEl) ganttTaskListEl.innerHTML = '';
-    if (ganttTimelineMonthsEl) ganttTimelineMonthsEl.innerHTML = '';
-    if (ganttTimelineDaysEl) ganttTimelineDaysEl.innerHTML = '';
-    if (ganttTimelineEl) ganttTimelineEl.innerHTML = '';
-  }
-  
-  async function updateTaskDates(taskId, newStartISO, newEndISO) {
-    const task = boardState.tasks.find((t) => t.id === taskId);
-    if (!task) return;
-  
-    if (newStartISO) setTaskStartISO(taskId, newStartISO);
-    else clearTaskStartISO(taskId);
-  
-    const payload = {
-      title: (task.title || '').trim(),
-      description: (task.description || '').trim(),
-      priority: task.priority || 'medium',
-      due_date: newEndISO || null,
-      assigned_to: task.assigned_to || null
-    };
-  
-    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
-      body: JSON.stringify(payload)
-    });
-  
-    const data = await safeJson(res);
-    if (!res.ok) throw new Error(data.error || 'Failed to update task');
-  
-    const idx = boardState.tasks.findIndex((t) => t.id === taskId);
-    if (idx !== -1) boardState.tasks[idx] = data.task;
-  
-    hydrateTaskStartDates();
-    renderBoard();
-    if (selectedTaskId === taskId) renderTaskDetail(taskId);
-  }
-  
-  /* =========================
-     NEW: Scroll sync state
-     ========================= */
-  let ganttVScrollLeftHandler = null;
-  let ganttVScrollRightHandler = null;
-  let ganttSyncingScroll = false;
-  
-  function renderGanttView() {
-    if (
-      !ganttView ||
-      !ganttTaskListEl ||
-      !ganttTimelineHeaderEl ||
-      !ganttTimelineEl ||
-      !ganttTimelineMonthsEl ||
-      !ganttTimelineDaysEl
-    ) return;
-  
-    clearGanttDom();
-  
-    if (!boardState.project) {
-      if (ganttEmptyEl) ganttEmptyEl.textContent =
-        'Select a project in the left sidebar, then add start & end dates to tasks in Ops.';
-      if (ganttMetaEl) ganttMetaEl.textContent = '';
-      return;
-    }
-  
-    hydrateTaskStartDates();
-  
-    const allTasks = boardState.tasks || [];
-    const doneIds = getDoneColumnIds();
-  
-    let tasks = allTasks.filter((t) => !!t.due_date);
-  
-    if (ganttState.hideCompleted) {
-      tasks = tasks.filter((t) => !doneIds.includes(t.column_id));
-    }
-  
-    tasks.sort((a, b) => {
-      const ra = getTaskRange(a);
-      const rb = getTaskRange(b);
-      if (!ra && !rb) return 0;
-      if (!ra) return 1;
-      if (!rb) return -1;
-      const sa = ra.start.getTime();
-      const sb = rb.start.getTime();
-      if (sa !== sb) return sa - sb;
-      return ra.end.getTime() - rb.end.getTime();
-    });
-  
-    if (!tasks.length) {
-      if (ganttEmptyEl) {
-        ganttEmptyEl.textContent =
-          'No tasks with end dates yet. Add Start & End dates in Ops (task details) to show them on the timeline.';
-      }
-      if (ganttMetaEl) {
-        ganttMetaEl.textContent = `Project: ${boardState.project.name} • 0 scheduled task(s)`;
-      }
-      return;
-    }
-  
-    if (ganttEmptyEl) ganttEmptyEl.textContent = '';
-  
-    // ✅ Force side-by-side layout even before CSS (CSS will finalize)
-    const gridEl = document.getElementById('gantt-grid');
-    if (gridEl) {
-      gridEl.style.display = 'grid';
-      gridEl.style.gridTemplateColumns = '420px 1fr';
-      gridEl.style.alignItems = 'start';
-      gridEl.style.columnGap = '0px';
-    }
-  
-    // ✅ Make BOTH sides vertically scrollable + synced
-    ganttTaskListEl.style.overflowY = 'auto';
-    ganttTimelineEl.style.overflowY = 'auto';
-    ganttTimelineEl.style.overflowX = 'auto';
-  
-    // remove old vertical handlers if re-rendering
-    if (ganttVScrollLeftHandler) ganttTaskListEl.removeEventListener('scroll', ganttVScrollLeftHandler);
-    if (ganttVScrollRightHandler) ganttTimelineEl.removeEventListener('scroll', ganttVScrollRightHandler);
-  
-    ganttVScrollLeftHandler = () => {
-      if (ganttSyncingScroll) return;
-      ganttSyncingScroll = true;
-      ganttTimelineEl.scrollTop = ganttTaskListEl.scrollTop;
-      requestAnimationFrame(() => (ganttSyncingScroll = false));
-    };
-  
-    ganttVScrollRightHandler = () => {
-      if (ganttSyncingScroll) return;
-      ganttSyncingScroll = true;
-      ganttTaskListEl.scrollTop = ganttTimelineEl.scrollTop;
-      requestAnimationFrame(() => (ganttSyncingScroll = false));
-    };
-  
-    ganttTaskListEl.addEventListener('scroll', ganttVScrollLeftHandler, { passive: true });
-    ganttTimelineEl.addEventListener('scroll', ganttVScrollRightHandler, { passive: true });
-  
-    // Determine time range
-    const ranges = tasks.map(getTaskRange).filter(Boolean);
-    const starts = ranges.map((r) => r.start);
-    const ends = ranges.map((r) => r.end);
-  
-    const today = startOfDay(new Date());
-  
-    let minStart = starts.reduce((min, d) => (d < min ? d : min), starts[0]);
-    let maxEnd = ends.reduce((max, d) => (d > max ? d : max), ends[0]);
-  
-    const padLeft = 7;
-    const padRight = 14;
-  
-    let rangeStart;
-    let rangeEnd;
-  
-    if (ganttState.anchorDate) {
-      const anchor = startOfDay(ganttState.anchorDate);
-      rangeStart = addDays(anchor, -padLeft);
-      rangeEnd = addDays(anchor, padRight);
-      if (minStart < rangeStart) rangeStart = addDays(minStart, -padLeft);
-      if (maxEnd > rangeEnd) rangeEnd = addDays(maxEnd, padRight);
-    } else {
-      const leftBase = minStart < today ? minStart : today;
-      const rightBase = maxEnd > today ? maxEnd : today;
-      rangeStart = addDays(leftBase, -padLeft);
-      rangeEnd = addDays(rightBase, padRight);
-    }
-  
-    const totalDays = Math.max(1, diffDays(rangeEnd, rangeStart) + 1);
-    const dayW = ganttState.dayWidth;
-  
-    if (ganttMetaEl) {
-      const hiddenDoneText = ganttState.hideCompleted ? ' • hiding completed' : '';
-      ganttMetaEl.textContent = `Project: ${boardState.project.name} • ${tasks.length} scheduled task(s)${hiddenDoneText}`;
-    }
-  
-    // Header scroll sync (X axis)
-    ganttTimelineHeaderEl.style.overflowX = 'auto';
-    ganttTimelineHeaderEl.style.whiteSpace = 'nowrap';
-  
-    const monthsRow = document.createElement('div');
-    monthsRow.classList.add('gantt-months-row');
-    monthsRow.style.display = 'flex';
-  
-    let cursor = addDays(rangeStart, 0);
-    while (cursor <= rangeEnd) {
-      const monthStart = startOfDay(new Date(cursor.getFullYear(), cursor.getMonth(), 1));
-      const nextMonthStart = startOfDay(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
-  
-      const segStart = cursor;
-      const segEnd = nextMonthStart <= rangeEnd ? addDays(nextMonthStart, -1) : rangeEnd;
-  
-      const segDays = diffDays(segEnd, segStart) + 1;
-      const cell = document.createElement('div');
-      cell.classList.add('gantt-month-cell');
-      cell.style.flex = `0 0 ${segDays * dayW}px`;
-      cell.style.width = `${segDays * dayW}px`;
-      cell.style.boxSizing = 'border-box';
-      cell.textContent = segStart.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-  
-      monthsRow.appendChild(cell);
-      cursor = addDays(segEnd, 1);
-    }
-  
-    const daysRow = document.createElement('div');
-    daysRow.classList.add('gantt-days-row');
-    daysRow.style.display = 'flex';
-  
-    for (let i = 0; i < totalDays; i++) {
-      const d = addDays(rangeStart, i);
-      const cell = document.createElement('div');
-      cell.classList.add('gantt-day-cell');
-      cell.style.width = `${dayW}px`;
-      cell.style.flex = `0 0 ${dayW}px`;
-      cell.style.boxSizing = 'border-box';
-  
-      const wk = document.createElement('div');
-      wk.classList.add('gantt-day-wk');
-      wk.textContent = d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1);
-  
-      const num = document.createElement('div');
-      num.classList.add('gantt-day-num');
-      num.textContent = String(d.getDate());
-  
-      cell.appendChild(wk);
-      cell.appendChild(num);
-  
-      if (diffDays(d, today) === 0) cell.classList.add('gantt-day-today');
-      daysRow.appendChild(cell);
-    }
-  
-    ganttTimelineMonthsEl.appendChild(monthsRow);
-    ganttTimelineDaysEl.appendChild(daysRow);
-  
-    // Keep header scroll synced with timeline scroll (X axis)
-    if (ganttScrollSyncHandler) {
-      ganttTimelineEl.removeEventListener('scroll', ganttScrollSyncHandler);
-    }
-    ganttScrollSyncHandler = () => {
-      ganttTimelineHeaderEl.scrollLeft = ganttTimelineEl.scrollLeft;
-    };
-    ganttTimelineEl.addEventListener('scroll', ganttScrollSyncHandler, { passive: true });
-  
-    const innerWidthPx = totalDays * dayW;
-  
-    // ✅ Make sure lanes stack vertically
-    ganttTimelineEl.style.position = 'relative';
-    ganttTimelineEl.style.whiteSpace = 'nowrap';
-  
-    // Rows: LEFT table + RIGHT lanes
-    tasks.forEach((t) => {
-      const range = getTaskRange(t);
-      if (!range) return;
-  
-      const duration = diffDays(range.end, range.start) + 1;
-  
-      // ----- Left row -----
-      const row = document.createElement('div');
-      row.classList.add('gantt-task-row');
-      row.dataset.taskId = t.id;
-  
-      // IMPORTANT: lock row height to match lane height
-      row.style.height = '44px';
-      row.style.display = 'grid';
-      row.style.gridTemplateColumns = 'minmax(140px, 1fr) 70px 90px 90px';
-      row.style.gap = '10px';
-      row.style.padding = '0 10px';
-      row.style.alignItems = 'center';
-      row.style.cursor = 'pointer';
-      row.style.boxSizing = 'border-box';
-  
-      const title = document.createElement('div');
-      title.classList.add('gantt-task-title');
-      title.textContent = t.title;
-      title.style.whiteSpace = 'nowrap';
-      title.style.overflow = 'hidden';
-      title.style.textOverflow = 'ellipsis';
-  
-      const durCell = document.createElement('div');
-      durCell.classList.add('gantt-task-duration');
-      durCell.textContent = `${duration}d`;
-  
-      const startCell = document.createElement('div');
-      startCell.classList.add('gantt-task-start');
-      startCell.dataset.taskId = t.id;
-      startCell.textContent = formatShortDate(range.start);
-  
-      const endCell = document.createElement('div');
-      endCell.classList.add('gantt-task-end');
-      endCell.dataset.taskId = t.id;
-      endCell.textContent = formatShortDate(range.end);
-  
-      if (isTaskDone(t)) {
-        row.classList.add('gantt-task-done');
-        title.style.textDecoration = 'line-through';
-        title.style.opacity = '0.75';
-      }
-  
-      row.appendChild(title);
-      row.appendChild(durCell);
-      row.appendChild(startCell);
-      row.appendChild(endCell);
-  
-      row.addEventListener('click', async () => {
-        setActiveView('ops');
-        await loadBoard(boardState.project.id);
-        selectedTaskId = t.id;
-        renderTaskDetail(t.id);
-  
-        const card = boardEl.querySelector(`.task-card[data-task-id="${t.id}"]`);
-        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-      });
-  
-      ganttTaskListEl.appendChild(row);
-  
-      // ----- Right lane -----
-      const lane = document.createElement('div');
-      lane.classList.add('gantt-lane');
-      lane.dataset.taskId = t.id;
-  
-      lane.style.position = 'relative';
-      lane.style.height = '44px';
-      lane.style.minWidth = `${innerWidthPx}px`;
-      lane.style.boxSizing = 'border-box';
-  
-      // grid
-      const grid = document.createElement('div');
-      grid.classList.add('gantt-lane-grid');
-      grid.style.position = 'absolute';
-      grid.style.left = '0';
-      grid.style.top = '0';
-      grid.style.right = '0';
-      grid.style.bottom = '0';
-      grid.style.display = 'flex';
-      grid.style.pointerEvents = 'none';
-  
-      for (let i = 0; i < totalDays; i++) {
-        const cell = document.createElement('div');
-        cell.style.width = `${dayW}px`;
-        cell.style.flex = `0 0 ${dayW}px`;
-        cell.style.boxSizing = 'border-box';
-        cell.style.borderRight = '1px solid rgba(255,255,255,0.05)';
-        grid.appendChild(cell);
-      }
-      lane.appendChild(grid);
-  
-      // bar
-      const bar = document.createElement('div');
-      bar.classList.add('gantt-bar');
-      bar.dataset.taskId = t.id;
-  
-      bar.style.position = 'absolute';
-      bar.style.top = '10px';
-      bar.style.height = '24px';
-      bar.style.borderRadius = '10px';
-      bar.style.boxSizing = 'border-box';
-      bar.style.cursor = 'grab';
-      bar.style.userSelect = 'none';
-      bar.style.touchAction = 'none';
-  
-      bar.style.border = '1px solid rgba(255,255,255,0.14)';
-      bar.style.background = 'rgba(99,102,241,0.55)';
-      if ((t.priority || '') === 'high') bar.style.background = 'rgba(239,68,68,0.55)';
-      if ((t.priority || '') === 'low') bar.style.background = 'rgba(34,197,94,0.40)';
-      if (isTaskDone(t)) bar.style.opacity = '0.5';
-  
-      const startOffset = diffDays(range.start, rangeStart);
-      const leftPx = Math.max(0, startOffset) * dayW;
-      const widthPx = Math.max(dayW, duration * dayW);
-  
-      bar.style.left = `${leftPx}px`;
-      bar.style.width = `${widthPx}px`;
-  
-      bar.title = `${t.title}\nStart: ${toISODateOnly(range.start)}\nEnd: ${toISODateOnly(range.end)}\nDrag to move`;
-  
-      lane.appendChild(bar);
-      ganttTimelineEl.appendChild(lane);
-  
-      attachGanttDragRange(bar, t, { rangeStart, dayW });
-    });
-  
-    if (ganttToggleCompleted) ganttToggleCompleted.checked = ganttState.hideCompleted;
-  }
-  
-  function attachGanttDragRange(barEl, task, ctx) {
-    if (!barEl) return;
-  
-    let drag = null;
-  
-    const onPointerDown = (e) => {
-      if (e.button != null && e.button !== 0) return;
-  
-      const range = getTaskRange(task);
-      if (!range) return;
-  
-      drag = {
-        taskId: task.id,
-        startClientX: e.clientX,
-        originalStart: range.start,
-        originalEnd: range.end,
-        lastDeltaDays: 0,
-        rangeStart: ctx.rangeStart,
-        dayW: ctx.dayW
-      };
-  
-      barEl.setPointerCapture?.(e.pointerId);
-      barEl.style.cursor = 'grabbing';
-      e.preventDefault();
-    };
-  
-    const onPointerMove = (e) => {
-      if (!drag) return;
-  
-      const dx = e.clientX - drag.startClientX;
-      const deltaDays = Math.round(dx / drag.dayW);
-      if (deltaDays === drag.lastDeltaDays) return;
-  
-      drag.lastDeltaDays = deltaDays;
-  
-      const newStart = addDays(drag.originalStart, deltaDays);
-      const newEnd = addDays(drag.originalEnd, deltaDays);
-  
-      const startOffset = diffDays(newStart, drag.rangeStart);
-      const leftPx = Math.max(0, startOffset) * drag.dayW;
-      barEl.style.left = `${leftPx}px`;
-  
-      const startCell = ganttTaskListEl?.querySelector(`.gantt-task-start[data-task-id="${task.id}"]`);
-      const endCell = ganttTaskListEl?.querySelector(`.gantt-task-end[data-task-id="${task.id}"]`);
-      if (startCell) startCell.textContent = formatShortDate(newStart);
-      if (endCell) endCell.textContent = formatShortDate(newEnd);
-    };
-  
-    const onPointerUp = async () => {
-      if (!drag) return;
-  
-      const deltaDays = drag.lastDeltaDays;
-      const newStart = addDays(drag.originalStart, deltaDays);
-      const newEnd = addDays(drag.originalEnd, deltaDays);
-  
-      drag = null;
-      barEl.style.cursor = 'grab';
-  
-      if (deltaDays === 0) return;
-  
-      try {
-        await updateTaskDates(task.id, toISODateOnly(newStart), toISODateOnly(newEnd));
-        task._start_date = toISODateOnly(newStart);
-        task.due_date = toISODateOnly(newEnd);
-        renderGanttView();
-      } catch (err) {
-        alert(err.message || 'Failed to update task dates.');
-        renderGanttView();
-      }
-    };
-  
-    barEl.addEventListener('pointerdown', onPointerDown);
-    barEl.addEventListener('pointermove', onPointerMove);
-    barEl.addEventListener('pointerup', onPointerUp);
-    barEl.addEventListener('pointercancel', onPointerUp);
-  }
-  
-  /* ============================================================
-     Gantt controls
-     ============================================================ */
-  
-  if (ganttBtnToday) {
-    ganttBtnToday.addEventListener('click', () => {
-      ganttState.anchorDate = startOfDay(new Date());
-      renderGanttView();
-    });
-  }
-  
-  if (ganttBtnZoomIn) {
-    ganttBtnZoomIn.addEventListener('click', () => {
-      ganttState.dayWidth = Math.min(60, ganttState.dayWidth + 4);
-      try { localStorage.setItem(GANTT_DAY_WIDTH_KEY, String(ganttState.dayWidth)); } catch {}
-      renderGanttView();
-    });
-  }
-  
-  if (ganttBtnZoomOut) {
-    ganttBtnZoomOut.addEventListener('click', () => {
-      ganttState.dayWidth = Math.max(10, ganttState.dayWidth - 4);
-      try { localStorage.setItem(GANTT_DAY_WIDTH_KEY, String(ganttState.dayWidth)); } catch {}
-      renderGanttView();
-    });
-  }
-  
-  if (ganttToggleCompleted) {
-    ganttToggleCompleted.checked = ganttState.hideCompleted;
-    ganttToggleCompleted.addEventListener('change', () => {
-      ganttState.hideCompleted = !!ganttToggleCompleted.checked;
-      try { localStorage.setItem(GANTT_HIDE_DONE_KEY, ganttState.hideCompleted ? '1' : '0'); } catch {}
-      renderGanttView();
-    });
-  }
-  
 
 /* ============================================================
    GLOBAL DRAG/DROP SAFETY

@@ -283,11 +283,10 @@
             <nav class="suite-tabs card">
               <button class="suite-tab active" data-view="suite">XYMZ.Suite</button>
               <button class="suite-tab" data-view="ops">XYMZ.Ops</button>
-              <button class="suite-tab" data-view="gantt">XYMZ.Gantt</button>
               <button class="suite-tab" data-view="bi">XYMZ.BI</button>
               <button class="suite-tab" data-view="fleet">XYMZ.Fleet</button>
               <button class="suite-tab" data-view="radar">XYMZ.Radar</button>
-            </nav>
+            </nav>            
 
             <!-- =============== XYMZ.Fleet (Roster / Roles) =============== -->
             <section id="fleet-view" class="fleet-view card hidden">
@@ -390,7 +389,6 @@
               <p class="muted">
                 Select an organization and project on the left.
                 Then use <strong>XYMZ.Ops</strong> to manage tasks,
-                <strong>XYMZ.Gantt</strong> to visualize timelines,
                 <strong>XYMZ.BI</strong> to see dashboards,
                 <strong>XYMZ.Fleet</strong> to understand your team,
                 and <strong>XYMZ.Radar</strong> to monitor overall health.
@@ -447,16 +445,6 @@
                         </div>
 
                         <div class="faq-item">
-                          <h4>What does XYMZ.Gantt do?</h4>
-                          <p>
-                            XYMZ.Gantt visualizes your project timeline based on the
-                            tasks you manage in <strong>XYMZ.Ops</strong>, including
-                            due dates. You’ll be able to adjust dates directly on the
-                            timeline from the frontend.
-                          </p>
-                        </div>
-
-                        <div class="faq-item">
                           <h4>What does XYMZ.BI show me?</h4>
                           <p>
                             XYMZ.BI aggregates tasks across your projects and
@@ -504,6 +492,7 @@
                   <section class="footer-section footer-social">
                     <h3>Social</h3>
                     <div class="social-row">
+                      <!-- Instagram with actual icon -->
                       <a
                         href="https://www.instagram.com/xymz.86"
                         class="social-icon social-instagram"
@@ -626,14 +615,7 @@
                       <option value="high">High</option>
                     </select>
                   </label>
-
-                  <!-- NEW: Start date (frontend-managed; used by Gantt) -->
-                  <label>Start date <input id="detail-input-start" type="date" /></label>
-
-                  <!-- NOTE: Keep existing ID detail-input-due for compatibility with current backend field (due_date),
-                       but it is now treated/displayed as the task "End date". -->
-                  <label>End date <input id="detail-input-due" type="date" /></label>
-
+                  <label>Due date <input id="detail-input-due" type="date" /></label>
                   <label>
                     Assigned to
                     <select id="detail-input-assignee"></select>
@@ -700,72 +682,6 @@
                 </button>
               </div>
             </section>
-
-<!-- =============== XYMZ.Gantt (Timeline) =============== -->
-<section id="gantt-view" class="gantt-view card hidden">
-  <div class="gantt-header">
-    <div>
-      <h2>XYMZ.Gantt – Project Timeline</h2>
-      <p class="muted">
-        Visualize tasks from <strong>XYMZ.Ops</strong> on a Gantt timeline.
-        Tasks with dates will appear here. You’ll be able to drag bars
-        to adjust dates (frontend-managed).
-      </p>
-      <p id="gantt-meta" class="status-text"></p>
-    </div>
-
-    <div class="gantt-actions">
-      <button id="gantt-btn-today" class="btn secondary small" type="button">
-        Today
-      </button>
-      <button id="gantt-btn-zoom-out" class="btn secondary small" type="button">
-        −
-      </button>
-      <button id="gantt-btn-zoom-in" class="btn secondary small" type="button">
-        +
-      </button>
-      <label class="checkbox-row" style="margin-left: 10px;">
-        <input id="gantt-toggle-completed" type="checkbox" />
-        <span>Hide completed</span>
-      </label>
-    </div>
-  </div>
-
-  <div id="gantt-empty" class="status-text" style="margin-top: 10px;">
-    Select a project in the left sidebar, then add start & end dates to tasks in Ops.
-  </div>
-
-  <!-- Main Gantt layout (left task list + right timeline) -->
-  <div id="gantt-root" class="gantt-root" aria-label="Gantt chart" role="region">
-    <div class="gantt-grid" id="gantt-grid">
-      <!-- LEFT: Task table -->
-      <div class="gantt-left" id="gantt-left">
-        <div class="gantt-left-header" id="gantt-left-header">
-          <span>Task</span>
-          <span class="muted">Duration</span>
-          <span class="muted">Start</span>
-          <span class="muted">End</span>
-        </div>
-        <div id="gantt-task-list" class="gantt-task-list">
-          <!-- populated by app.js -->
-        </div>
-      </div>
-
-      <!-- RIGHT: Timeline -->
-      <div class="gantt-right" id="gantt-right">
-        <div id="gantt-timeline-header" class="gantt-timeline-header">
-          <div id="gantt-timeline-months" class="gantt-timeline-months"></div>
-          <div id="gantt-timeline-days" class="gantt-timeline-days"></div>
-        </div>
-
-        <div id="gantt-timeline" class="gantt-timeline">
-          <!-- populated by app.js -->
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 
             <!-- =============== XYMZ.BI (Dashboard) =============== -->
             <section id="bi-view" class="bi-view card hidden">
