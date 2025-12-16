@@ -5,6 +5,33 @@
    @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap");
 
    /* --------------------------------------------------
+      Tokens
+      -------------------------------------------------- */
+   :root {
+     --accent: rgba(56, 189, 248, 0.9);
+     --accent-soft: rgba(56, 189, 248, 0.35);
+     --accent-soft-strong: rgba(56, 189, 248, 0.75);
+     --danger: rgba(239, 68, 68, 0.85);
+     --border: rgba(148, 163, 184, 0.35);
+     --panel: rgba(15, 23, 42, 0.96);
+     --panel-strong: rgba(15, 23, 42, 0.98);
+     --text: #e5e7eb;
+     --muted: #9ca3af;
+   
+     /* ✅ Sticky offset so sticky headers sit below the sticky topbar */
+     --sticky-offset: 64px;
+   
+     /* ✅ Gantt “MS Project-like” grid */
+     --gantt-grid: rgba(255, 255, 255, 0.06);
+     --gantt-row-odd: rgba(15, 23, 42, 0.92);
+     --gantt-row-even: rgba(15, 23, 42, 0.86);
+     --gantt-header-bg: rgba(15, 23, 42, 0.98);
+   
+     /* default day width for background grid (JS can override widths inline) */
+     --gantt-day-width: 28px;
+   }
+   
+   /* --------------------------------------------------
       Base + Layout
       -------------------------------------------------- */
    
@@ -19,15 +46,14 @@
      margin: 0;
      padding: 0;
      height: 100%;
-     font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont,
-       "Segoe UI", sans-serif;
+     font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+       sans-serif;
      background: radial-gradient(circle at top left, #020617 0, #020617 45%, #000 100%);
-     color: #e5e7eb;
+     color: var(--text);
      scroll-behavior: smooth;
    }
    
    /* Premium heading / brand typography */
-   
    h1,
    h2,
    h3,
@@ -51,17 +77,16 @@
    
    /* Topbar subtitle – high-end label feel */
    .topbar p {
-     font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont,
-       "Segoe UI", sans-serif;
+     font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+       sans-serif;
      letter-spacing: 0.16em;
      text-transform: uppercase;
    }
    
    /* Buttons + sidebar labels use premium fonts */
-   
    .btn {
-     font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont,
-       "Segoe UI", sans-serif;
+     font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+       sans-serif;
      font-weight: 500;
    }
    
@@ -88,16 +113,12 @@
      align-items: center;
      padding: 10px 16px;
      border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-     background: radial-gradient(
-         circle at top left,
-         rgba(56, 189, 248, 0.15),
-         transparent 55%
-       ),
+     background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.15), transparent 55%),
        linear-gradient(135deg, #020617, #020617, #020617);
      backdrop-filter: blur(12px);
      position: sticky;
      top: 0;
-     z-index: 10;
+     z-index: 100;
      animation: topbar-fade-in 600ms ease-out;
    }
    
@@ -119,12 +140,17 @@
      background-size: cover;
      background-position: center;
      background-repeat: no-repeat;
+   
+     /* ✅ Fix: border + transition so hover styles actually show */
+     border: 1px solid rgba(148, 163, 184, 0.35);
+     cursor: pointer;
+     transition: transform 160ms ease, box-shadow 220ms ease, border-color 200ms ease;
    }
    
    .logo-orb:hover {
-    transform: translateY(-1px) rotate(-0.7deg);
-    border-color: var(--accent-soft-strong);
-    background-color: rgba(15, 23, 42, 1);
+     transform: translateY(-1px) rotate(-0.7deg);
+     border-color: var(--accent-soft-strong);
+     box-shadow: 0 14px 32px rgba(15, 23, 42, 0.95);
    }
    /* (Old .logo-orb::after sheen removed so it doesn't cover the logo) */
    
@@ -136,7 +162,7 @@
    .topbar p {
      margin: 2px 0 0;
      font-size: 0.8rem;
-     color: #9ca3af;
+     color: var(--muted);
    }
    
    .topbar-right {
@@ -157,7 +183,7 @@
    }
    
    .user-chip span:last-child {
-     color: #9ca3af;
+     color: var(--muted);
      font-size: 0.78rem;
    }
    
@@ -169,7 +195,7 @@
      border-radius: 999px;
      border: 1px solid rgba(148, 163, 184, 0.6);
      background: rgba(15, 23, 42, 0.98);
-     color: #e5e7eb;
+     color: var(--text);
      padding: 6px 12px;
      font-size: 0.85rem;
      cursor: pointer;
@@ -177,20 +203,14 @@
      align-items: center;
      justify-content: center;
      gap: 4px;
-     transition:
-       background 200ms ease,
-       border-color 200ms ease,
-       box-shadow 220ms ease,
+     transition: background 200ms ease, border-color 200ms ease, box-shadow 220ms ease,
        transform 160ms ease;
    }
    
    .btn.primary {
      border-color: rgba(56, 189, 248, 0.9);
-     background: radial-gradient(
-       circle at top left,
-       rgba(56, 189, 248, 0.4),
-       rgba(15, 23, 42, 1)
-     );
+     background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.4),
+         rgba(15, 23, 42, 1));
    }
    
    .btn.secondary {
@@ -200,11 +220,8 @@
    /* Danger (delete) style */
    .btn.danger {
      border-color: rgba(239, 68, 68, 0.85);
-     background: radial-gradient(
-       circle at top left,
-       rgba(239, 68, 68, 0.35),
-       rgba(15, 23, 42, 1)
-     );
+     background: radial-gradient(circle at top left, rgba(239, 68, 68, 0.35),
+         rgba(15, 23, 42, 1));
      color: #fecaca;
    }
    
@@ -224,6 +241,18 @@
    
    .btn:active {
      transform: translateY(0) scale(0.98);
+   }
+   
+   /* ✅ Better keyboard focus */
+   .btn:focus-visible,
+   .tab:focus-visible,
+   .suite-tab:focus-visible,
+   .link-button:focus-visible,
+   select:focus-visible,
+   input:focus-visible,
+   textarea:focus-visible {
+     outline: none;
+     box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45);
    }
    
    /* --------------------------------------------------
@@ -280,19 +309,16 @@
      border: none;
      border-bottom: 2px solid transparent;
      background: transparent;
-     color: #9ca3af;
+     color: var(--muted);
      padding: 8px 0;
      cursor: pointer;
      font-size: 0.9rem;
      border-radius: 999px;
-     transition:
-       background 200ms ease,
-       color 200ms ease,
-       border-color 200ms ease;
+     transition: background 200ms ease, color 200ms ease, border-color 200ms ease;
    }
    
    .tab.active {
-     color: #e5e7eb;
+     color: var(--text);
      border-bottom-color: rgba(56, 189, 248, 0.9);
      background: rgba(15, 23, 42, 0.96);
    }
@@ -309,13 +335,10 @@
      border-radius: 8px;
      border: 1px solid rgba(148, 163, 184, 0.6);
      background: rgba(15, 23, 42, 0.98);
-     color: #e5e7eb;
+     color: var(--text);
      padding: 6px 8px;
      font-size: 0.85rem;
-     transition:
-       border-color 200ms ease,
-       box-shadow 200ms ease,
-       background 200ms ease;
+     transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
    }
    
    .auth-form input::placeholder {
@@ -336,13 +359,10 @@
      border-radius: 8px;
      border: 1px solid rgba(148, 163, 184, 0.6);
      background: rgba(15, 23, 42, 0.98);
-     color: #e5e7eb;
+     color: var(--text);
      padding: 6px 8px;
      font-size: 0.85rem;
-     transition:
-       border-color 200ms ease,
-       box-shadow 200ms ease,
-       background 200ms ease;
+     transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
    }
    
    .auth-form select:focus,
@@ -396,7 +416,7 @@
    
    .status-text {
      font-size: 0.78rem;
-     color: #9ca3af;
+     color: var(--muted);
      margin-top: 6px;
    }
    
@@ -429,11 +449,8 @@
    
    .checkbox-row input[type="checkbox"]:checked {
      border-color: rgba(56, 189, 248, 0.9);
-     background: radial-gradient(
-       circle at top left,
-       rgba(56, 189, 248, 0.3),
-       rgba(15, 23, 42, 1)
-     );
+     background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.3),
+         rgba(15, 23, 42, 1));
    }
    
    .checkbox-row input[type="checkbox"]:checked::after {
@@ -442,7 +459,7 @@
      position: absolute;
      top: -1px;
      left: 2px;
-     color: #e5e7eb;
+     color: var(--text);
    }
    
    /* --------------------------------------------------
@@ -485,16 +502,12 @@
    }
    
    /* project list items as animated nav-like chips */
-   
    .project-list li {
      padding: 6px 8px;
      border-radius: 8px;
      cursor: grab;
      border: 1px solid transparent;
-     transition:
-       background 200ms ease,
-       border-color 200ms ease,
-       box-shadow 220ms ease,
+     transition: background 200ms ease, border-color 200ms ease, box-shadow 220ms ease,
        transform 140ms ease;
      display: flex;
      align-items: center;
@@ -587,7 +600,7 @@
    }
    
    /* --------------------------------------------------
-      XYMZ Suite tabs (Suite / Ops / BI / Fleet / Radar)
+      XYMZ Suite tabs (Suite / Ops / Gantt / BI / Fleet / Radar)
       -------------------------------------------------- */
    
    .suite-tabs {
@@ -601,21 +614,18 @@
      border-radius: 999px;
      border: 1px solid rgba(148, 163, 184, 0.6);
      background: rgba(15, 23, 42, 0.96);
-     color: #9ca3af;
+     color: var(--muted);
      padding: 6px 12px;
      font-size: 0.8rem;
      cursor: pointer;
      text-transform: uppercase;
      letter-spacing: 0.12em;
-     transition:
-       background 200ms ease,
-       color 200ms ease,
-       border-color 200ms ease,
+     transition: background 200ms ease, color 200ms ease, border-color 200ms ease,
        box-shadow 220ms ease;
    }
    
    .suite-tab.active {
-     color: #e5e7eb;
+     color: var(--text);
      border-color: rgba(56, 189, 248, 0.9);
      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.95);
    }
@@ -627,6 +637,330 @@
    .suite-view {
      padding: 12px 14px;
      margin-bottom: 10px;
+   }
+   
+   /* --------------------------------------------------
+      XYMZ.Gantt
+      -------------------------------------------------- */
+   
+   .gantt-view {
+     padding: 12px 14px;
+     margin-bottom: 10px;
+   }
+   
+   /* If your Gantt view uses a header/tool row */
+   .gantt-header h2 {
+     margin: 0 0 4px;
+   }
+   
+   .gantt-header p {
+     margin: 0 0 8px;
+   }
+   
+   /* Meta + empty messaging */
+   #gantt-meta {
+     margin-top: 6px;
+     font-size: 0.85rem;
+     color: var(--muted);
+   }
+   
+   #gantt-empty {
+     margin-top: 10px;
+     padding: 10px 12px;
+     border-radius: 12px;
+     border: 1px dashed rgba(148, 163, 184, 0.35);
+     background: rgba(15, 23, 42, 0.82);
+     color: var(--muted);
+     font-size: 0.85rem;
+   }
+   
+   /* Controls (works whether you used classes or IDs) */
+   .gantt-controls,
+   .gantt-toolbar {
+     margin-top: 8px;
+     display: flex;
+     flex-wrap: wrap;
+     gap: 8px;
+     align-items: center;
+   }
+   
+   .gantt-controls .btn,
+   .gantt-toolbar .btn {
+     white-space: nowrap;
+   }
+   
+   .gantt-toggle {
+     display: inline-flex;
+     align-items: center;
+     gap: 8px;
+     padding: 6px 10px;
+     border-radius: 999px;
+     border: 1px solid rgba(148, 163, 184, 0.35);
+     background: rgba(15, 23, 42, 0.78);
+     font-size: 0.78rem;
+     color: var(--muted);
+     letter-spacing: 0.08em;
+     text-transform: uppercase;
+   }
+   
+   /* Layout */
+   .gantt-body {
+     margin-top: 10px;
+     display: grid;
+     grid-template-columns: 360px minmax(0, 1fr);
+     grid-template-rows: auto 1fr;
+     gap: 10px;
+     align-items: start;
+   }
+   
+   /* ✅ grid placement for the 3 key panels */
+   .gantt-body #gantt-task-list {
+     grid-column: 1;
+     grid-row: 1 / 3;
+   }
+   .gantt-body #gantt-timeline-header {
+     grid-column: 2;
+     grid-row: 1;
+   }
+   .gantt-body #gantt-timeline {
+     grid-column: 2;
+     grid-row: 2;
+   }
+   
+   /* --------------------------------------------------
+      ✅ Sticky headers + MS Project-like grid / striping
+      -------------------------------------------------- */
+   
+   /* Prevent jitter from scrollbars resizing the layout */
+   #gantt-task-list,
+   #gantt-timeline {
+     scrollbar-gutter: stable;
+   }
+   
+   /* Task list panel */
+   #gantt-task-list {
+     border-radius: 12px;
+     border: 1px solid rgba(51, 65, 85, 0.9);
+     background: rgba(15, 23, 42, 0.9);
+     overflow: auto;
+     position: relative;
+   
+     /* ✅ keep vertical scroll area stable (no “jump” when content changes) */
+     overflow-y: scroll;
+   }
+   
+   /* ✅ LEFT header sticky (expects a header row element inside #gantt-task-list) */
+   #gantt-task-list .gantt-task-header,
+   #gantt-task-list .gantt-task-header-row {
+     position: sticky;
+     top: var(--sticky-offset);
+     z-index: 20;
+     background: var(--gantt-header-bg);
+     border-bottom: 1px solid var(--gantt-grid);
+     backdrop-filter: blur(8px);
+   }
+   
+   /* If your header is the first child (common), make it sticky too */
+   #gantt-task-list > :first-child.gantt-task-header,
+   #gantt-task-list > :first-child.gantt-task-header-row {
+     position: sticky;
+     top: var(--sticky-offset);
+   }
+   
+   /* ✅ Make task rows feel like a table */
+   .gantt-task-row {
+     border-bottom: 1px solid var(--gantt-grid);
+     display: grid;
+     grid-template-columns: minmax(180px, 1fr) 96px 120px 120px;
+     gap: 10px;
+     padding: 8px 10px;
+     align-items: center;
+   
+     /* keep row height stable */
+     min-height: 44px;
+   }
+   
+   /* Row striping */
+   #gantt-task-list .gantt-task-row:nth-of-type(odd) {
+     background: var(--gantt-row-odd);
+   }
+   #gantt-task-list .gantt-task-row:nth-of-type(even) {
+     background: var(--gantt-row-even);
+   }
+   
+   .gantt-task-row:hover {
+     background: rgba(31, 41, 55, 0.65);
+   }
+   
+   .gantt-task-title {
+     font-size: 0.88rem;
+     font-weight: 500;
+   }
+   
+   /* these match the updated app.js task-row cells */
+   .gantt-task-duration,
+   .gantt-task-start,
+   .gantt-task-end {
+     font-size: 0.78rem;
+     color: var(--muted);
+     white-space: nowrap;
+     text-align: right;
+   
+     /* ✅ column separators */
+     border-left: 1px solid var(--gantt-grid);
+     padding-left: 10px;
+   }
+   
+   /* Backwards-compat (older class name) */
+   .gantt-task-due {
+     font-size: 0.78rem;
+     color: var(--muted);
+     white-space: nowrap;
+   }
+   
+   .gantt-task-done .gantt-task-title {
+     text-decoration: line-through;
+     opacity: 0.75;
+   }
+   
+   /* Timeline header */
+   #gantt-timeline-header {
+     border-radius: 12px;
+     border: 1px solid rgba(51, 65, 85, 0.9);
+     background: rgba(15, 23, 42, 0.9);
+     position: sticky;               /* ✅ RIGHT header sticky */
+     top: var(--sticky-offset);
+     z-index: 30;
+     overflow-x: auto;
+     overflow-y: hidden;
+     backdrop-filter: blur(10px);
+   
+     /* Prevent header scrollbar height from causing jitter */
+     scrollbar-gutter: stable;
+   }
+   
+   /* Hide header scrollbar “bar” but still allow scrolling */
+   #gantt-timeline-header::-webkit-scrollbar {
+     height: 0px;
+   }
+   #gantt-timeline-header {
+     scrollbar-width: none; /* Firefox */
+   }
+   
+   /* internal header rows */
+   #gantt-timeline-months,
+   #gantt-timeline-days {
+     width: 100%;
+   }
+   
+   .gantt-months-row {
+     display: flex;
+     min-height: 34px;
+     border-bottom: 1px solid var(--gantt-grid);
+   }
+   
+   .gantt-month-cell {
+     display: flex;
+     align-items: center;
+     padding: 0 10px;
+     font-size: 0.78rem;
+     letter-spacing: 0.08em;
+     text-transform: uppercase;
+     color: rgba(229, 231, 235, 0.92);
+     border-right: 1px solid var(--gantt-grid);
+     white-space: nowrap;
+   }
+   
+   .gantt-days-row {
+     display: flex;
+     min-height: 44px;
+   }
+   
+   .gantt-day-cell {
+     display: flex;
+     flex-direction: column;
+     justify-content: center;
+     align-items: center;
+     gap: 2px;
+     border-right: 1px solid var(--gantt-grid);
+     width: var(--gantt-day-width);
+   }
+   
+   .gantt-day-wk {
+     font-size: 0.7rem;
+     color: rgba(156, 163, 175, 0.9);
+     letter-spacing: 0.08em;
+     text-transform: uppercase;
+   }
+   
+   .gantt-day-num {
+     font-size: 0.78rem;
+     color: rgba(229, 231, 235, 0.92);
+   }
+   
+   /* Backwards-compat (older class name) */
+   .gantt-day-label {
+     color: var(--muted);
+   }
+   
+   .gantt-day-today {
+     background: rgba(56, 189, 248, 0.10);
+   }
+   
+   /* Timeline body */
+   #gantt-timeline {
+     border-radius: 12px;
+     border: 1px solid rgba(51, 65, 85, 0.9);
+     background: rgba(15, 23, 42, 0.9);
+     overflow: auto;
+     position: relative;
+   
+     /* ✅ reduce “layout jitter” when scrollbars appear */
+     overflow-y: scroll;
+   
+     /* ✅ MS Project-like vertical day gridlines */
+     background-image:
+       repeating-linear-gradient(
+         to right,
+         var(--gantt-grid) 0px,
+         var(--gantt-grid) 1px,
+         transparent 1px,
+         transparent var(--gantt-day-width)
+       );
+   }
+   
+   /* Backwards-compat (older header row class) */
+   .gantt-header-row {
+     display: flex;
+     min-height: 44px;
+   }
+   
+   /* lanes created by JS */
+   .gantt-lane {
+     border-bottom: 1px solid var(--gantt-grid);
+     min-height: 44px;
+   }
+   
+   /* ✅ row striping on the timeline lanes too */
+   #gantt-timeline .gantt-lane:nth-of-type(odd) {
+     background-color: rgba(0, 0, 0, 0);
+   }
+   #gantt-timeline .gantt-lane:nth-of-type(even) {
+     background-color: rgba(255, 255, 255, 0.03);
+   }
+   
+   .gantt-lane:hover {
+     background: rgba(31, 41, 55, 0.35);
+   }
+   
+   .gantt-bar {
+     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.7);
+     transition: transform 140ms ease, box-shadow 200ms ease, opacity 180ms ease;
+   }
+   
+   .gantt-bar:hover {
+     transform: translateY(-1px);
+     box-shadow: 0 14px 30px rgba(15, 23, 42, 0.85);
    }
    
    /* --------------------------------------------------
@@ -655,7 +989,7 @@
    .bi-task-chart-title {
      font-size: 0.85rem;
      margin: 0 0 4px;
-     color: #e5e7eb;
+     color: var(--text);
    }
    
    #bi-task-chart {
@@ -668,11 +1002,7 @@
       -------------------------------------------------- */
    
    .column {
-     background: radial-gradient(
-         circle at top left,
-         rgba(56, 189, 248, 0.1),
-         transparent 55%
-       ),
+     background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.1), transparent 55%),
        rgba(15, 23, 42, 0.98);
      border-radius: 10px;
      border: 1px solid rgba(55, 65, 81, 1);
@@ -681,10 +1011,7 @@
      display: flex;
      flex-direction: column;
      transform: translateY(0);
-     transition:
-       box-shadow 220ms ease,
-       transform 200ms ease,
-       border-color 200ms ease;
+     transition: box-shadow 220ms ease, transform 200ms ease, border-color 200ms ease;
    }
    
    /* subtle float-on-hover for columns */
@@ -708,7 +1035,7 @@
    
    .column-count {
      font-size: 0.75rem;
-     color: #9ca3af;
+     color: var(--muted);
    }
    
    .column-body {
@@ -728,12 +1055,8 @@
      margin-bottom: 6px;
      cursor: grab;
      transform-origin: center;
-     transition:
-       border-color 200ms ease,
-       box-shadow 220ms ease,
-       transform 160ms ease,
-       background 180ms ease,
-       opacity 160ms ease;
+     transition: border-color 200ms ease, box-shadow 220ms ease, transform 160ms ease,
+       background 180ms ease, opacity 160ms ease;
      animation: task-pop-in 260ms ease-out;
    }
    
@@ -758,11 +1081,10 @@
      font-size: 0.75rem;
      display: flex;
      justify-content: space-between;
-     color: #9ca3af;
+     color: var(--muted);
    }
    
    /* priority pills */
-   
    .priority-pill {
      padding: 2px 6px;
      border-radius: 999px;
@@ -816,7 +1138,7 @@
    }
    
    .muted {
-     color: #9ca3af;
+     color: var(--muted);
      font-size: 0.85rem;
    }
    
@@ -838,13 +1160,10 @@
      border-radius: 8px;
      border: 1px solid rgba(148, 163, 184, 0.6);
      background: rgba(15, 23, 42, 0.98);
-     color: #e5e7eb;
+     color: var(--text);
      padding: 5px 7px;
      font-size: 0.85rem;
-     transition:
-       border-color 200ms ease,
-       box-shadow 200ms ease,
-       background 200ms ease;
+     transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
    }
    
    #detail-form input:focus,
@@ -897,7 +1216,7 @@
      border-radius: 8px;
      border: 1px solid rgba(148, 163, 184, 0.6);
      background: rgba(15, 23, 42, 0.98);
-     color: #e5e7eb;
+     color: var(--text);
      padding: 5px 7px;
      font-size: 0.85rem;
    }
@@ -938,7 +1257,7 @@
    
    .attachment-meta {
      font-size: 0.76rem;
-     color: #9ca3af;
+     color: var(--muted);
      flex: 1;
      white-space: nowrap;
      overflow: hidden;
@@ -953,10 +1272,7 @@
      font-size: 0.7rem;
      padding: 3px 8px;
      cursor: pointer;
-     transition:
-       background 180ms ease,
-       border-color 180ms ease,
-       box-shadow 200ms ease,
+     transition: background 180ms ease, border-color 180ms ease, box-shadow 200ms ease,
        transform 140ms ease;
    }
    
@@ -978,7 +1294,7 @@
    .attachment-input[type="file"] {
      flex: 1;
      font-size: 0.78rem;
-     color: #e5e7eb;
+     color: var(--text);
    }
    
    /* --------------------------------------------------
@@ -989,7 +1305,7 @@
      border-radius: 999px;
      padding: 4px 10px;
      background: rgba(15, 23, 42, 0.98);
-     color: #e5e7eb;
+     color: var(--text);
      border: 1px solid rgba(148, 163, 184, 0.6);
      font-size: 0.8rem;
    }
@@ -1058,7 +1374,7 @@
    
    .fleet-list li .fleet-meta {
      font-size: 0.78rem;
-     color: #9ca3af;
+     color: var(--muted);
    }
    
    .fleet-metrics-grid {
@@ -1072,11 +1388,8 @@
      border-radius: 10px;
      border: 1px solid rgba(51, 65, 85, 0.9);
      padding: 6px 8px;
-     background: radial-gradient(
-         circle at top left,
-         rgba(148, 163, 184, 0.18),
-         transparent 55%
-       ),
+     background: radial-gradient(circle at top left, rgba(148, 163, 184, 0.18),
+         transparent 55%),
        rgba(15, 23, 42, 0.98);
    }
    
@@ -1164,14 +1477,10 @@
      border: 1px solid transparent;
      cursor: pointer;
      text-decoration: none;
-     color: #e5e7eb;
+     color: var(--text);
      line-height: 1.35;
-     transition:
-       background 180ms ease,
-       border-color 180ms ease,
-       box-shadow 200ms ease,
-       transform 140ms ease,
-       color 160ms ease;
+     transition: background 180ms ease, border-color 180ms ease, box-shadow 200ms ease,
+       transform 140ms ease, color 160ms ease;
    }
    
    .radar-clickable::before {
@@ -1179,15 +1488,10 @@
      flex: 0 0 3px;
      align-self: stretch;
      border-radius: 999px;
-     background: linear-gradient(
-       to bottom,
-       rgba(252, 211, 77, 0.9),
-       rgba(248, 113, 113, 0.9)
-     );
+     background: linear-gradient(to bottom, rgba(252, 211, 77, 0.9),
+         rgba(248, 113, 113, 0.9));
      opacity: 0.7;
-     transition:
-       opacity 180ms ease,
-       box-shadow 180ms ease;
+     transition: opacity 180ms ease, box-shadow 180ms ease;
    }
    
    .radar-clickable:hover {
@@ -1267,6 +1571,24 @@
      .radar-grid {
        grid-template-columns: 1fr;
      }
+   
+     .gantt-body {
+       grid-template-columns: 1fr;
+       grid-template-rows: auto auto auto;
+     }
+   
+     /* ✅ when stacked, let panels flow naturally */
+     .gantt-body #gantt-task-list,
+     .gantt-body #gantt-timeline-header,
+     .gantt-body #gantt-timeline {
+       grid-column: 1;
+       grid-row: auto;
+     }
+   
+     #gantt-task-list {
+       max-height: 260px;
+       overflow-y: auto;
+     }
    }
    
    /* Stack board columns vertically on tablets / phones */
@@ -1300,6 +1622,11 @@
        align-items: flex-start;
        gap: 6px;
        padding-top: calc(10px + env(safe-area-inset-top));
+     }
+   
+     /* ✅ sticky headers should not offset when topbar isn’t sticky */
+     :root {
+       --sticky-offset: 0px;
      }
    
      .brand {
@@ -1405,7 +1732,6 @@
    }
    
    /* About + FAQs via <details> */
-   
    .footer-section details {
      background: rgba(15, 23, 42, 0.9);
      border-radius: 10px;
@@ -1420,7 +1746,7 @@
      font-weight: 600;
      letter-spacing: 0.06em;
      text-transform: uppercase;
-     color: #e5e7eb;
+     color: var(--text);
    }
    
    .footer-section summary::-webkit-details-marker {
@@ -1433,11 +1759,10 @@
    
    .footer-section details p {
      margin: 6px 0;
-     color: #9ca3af;
+     color: var(--muted);
    }
    
    /* FAQ layout inside details */
-   
    .footer-faq-list {
      margin-top: 6px;
      display: flex;
@@ -1457,7 +1782,6 @@
    }
    
    /* Contact */
-   
    .footer-contact p {
      margin: 4px 0;
    }
@@ -1472,7 +1796,6 @@
    }
    
    /* Social icons */
-   
    .footer-social .social-row {
      display: flex;
      flex-wrap: wrap;
@@ -1490,12 +1813,9 @@
      justify-content: center;
      font-size: 0.75rem;
      text-decoration: none;
-     color: #e5e7eb;
+     color: var(--text);
      background: rgba(15, 23, 42, 0.95);
-     transition:
-       background 180ms ease,
-       border-color 180ms ease,
-       box-shadow 180ms ease,
+     transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease,
        transform 140ms ease;
    }
    
@@ -1534,7 +1854,6 @@
    }
    
    /* Responsive footer layout */
-   
    @media (max-width: 960px) {
      .suite-footer-inner {
        grid-template-columns: 1fr 1fr;
@@ -1548,7 +1867,7 @@
    }
    
    /* --------------------------------------------------
-      THEME VARIANTS (Suite / Ops / BI / Fleet / Radar)
+      THEME VARIANTS (Suite / Ops / Gantt / BI / Fleet / Radar)
       -------------------------------------------------- */
    
    /* Suite = default look */
@@ -1557,11 +1876,7 @@
    }
    
    body.theme-suite .topbar {
-     background: radial-gradient(
-         circle at top left,
-         rgba(56, 189, 248, 0.15),
-         transparent 55%
-       ),
+     background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.15), transparent 55%),
        linear-gradient(135deg, #020617, #020617, #020617);
    }
    
@@ -1572,11 +1887,7 @@
    
    body.theme-ops .topbar {
      border-bottom-color: rgba(228, 132, 0, 0.6);
-     background: radial-gradient(
-         circle at top left,
-         rgba(228, 132, 0, 0.18),
-         transparent 55%
-       ),
+     background: radial-gradient(circle at top left, rgba(228, 132, 0, 0.18), transparent 55%),
        linear-gradient(135deg, #1a1004, #020617, #020617);
    }
    
@@ -1586,11 +1897,7 @@
    }
    
    body.theme-ops .column {
-     background: radial-gradient(
-         circle at top left,
-         rgba(228, 132, 0, 0.16),
-         transparent 55%
-       ),
+     background: radial-gradient(circle at top left, rgba(228, 132, 0, 0.16), transparent 55%),
        rgba(13, 16, 24, 0.98);
      border-color: rgba(180, 83, 9, 0.9);
    }
@@ -1605,6 +1912,31 @@
      box-shadow: 0 10px 30px rgba(120, 53, 15, 0.9);
    }
    
+   /* Gantt */
+   body.theme-gantt {
+     background: radial-gradient(circle at top left, #041b1f 0, #020617 45%, #020617 100%);
+   }
+   
+   body.theme-gantt .topbar {
+     border-bottom-color: rgba(45, 212, 191, 0.65);
+     background: radial-gradient(circle at top left, rgba(45, 212, 191, 0.18), transparent 55%),
+       linear-gradient(135deg, #041b1f, #020617, #020617);
+   }
+   
+   body.theme-gantt .card {
+     background: rgba(12, 18, 22, 0.98);
+     border-color: rgba(45, 212, 191, 0.28);
+   }
+   
+   body.theme-gantt .suite-tab.active {
+     border-color: rgba(45, 212, 191, 0.95);
+     box-shadow: 0 12px 32px rgba(13, 148, 136, 0.35);
+   }
+   
+   body.theme-gantt .gantt-bar {
+     border-color: rgba(45, 212, 191, 0.35);
+   }
+   
    /* BI */
    body.theme-bi {
      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #02011a 100%);
@@ -1612,11 +1944,7 @@
    
    body.theme-bi .topbar {
      border-bottom-color: rgba(129, 140, 248, 0.65);
-     background: radial-gradient(
-         circle at top left,
-         rgba(129, 140, 248, 0.2),
-         transparent 55%
-       ),
+     background: radial-gradient(circle at top left, rgba(129, 140, 248, 0.2), transparent 55%),
        linear-gradient(135deg, #020617, #02011a, #020617);
    }
    
@@ -1626,20 +1954,12 @@
    }
    
    body.theme-bi .bi-view {
-     background: radial-gradient(
-         circle at top left,
-         rgba(129, 140, 248, 0.18),
-         transparent 65%
-       );
+     background: radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 65%);
      border-radius: 16px;
    }
    
    body.theme-bi .column {
-     background: radial-gradient(
-         circle at top left,
-         rgba(129, 140, 248, 0.18),
-         transparent 55%
-       ),
+     background: radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 55%),
        rgba(15, 23, 42, 0.98);
      border-color: rgba(55, 65, 81, 1);
    }
@@ -1656,11 +1976,7 @@
    
    body.theme-fleet .topbar {
      border-bottom-color: rgba(214, 158, 72, 0.7);
-     background: radial-gradient(
-         circle at top left,
-         rgba(214, 158, 72, 0.22),
-         transparent 55%
-       ),
+     background: radial-gradient(circle at top left, rgba(214, 158, 72, 0.22), transparent 55%),
        linear-gradient(135deg, #3a2614, #17110a, #020617);
    }
    
@@ -1670,11 +1986,7 @@
    }
    
    body.theme-fleet .fleet-view {
-     background: radial-gradient(
-         circle at top left,
-         rgba(214, 158, 72, 0.18),
-         transparent 60%
-       ),
+     background: radial-gradient(circle at top left, rgba(214, 158, 72, 0.18), transparent 60%),
        rgba(20, 16, 12, 0.98);
    }
    
@@ -1690,11 +2002,7 @@
    
    body.theme-radar .topbar {
      border-bottom-color: rgba(230, 116, 88, 0.7);
-     background: radial-gradient(
-         circle at top left,
-         rgba(230, 116, 88, 0.2),
-         transparent 55%
-       ),
+     background: radial-gradient(circle at top left, rgba(230, 116, 88, 0.2), transparent 55%),
        linear-gradient(135deg, #3b1410, #190707, #020617);
    }
    
@@ -1704,11 +2012,7 @@
    }
    
    body.theme-radar .radar-view {
-     background: radial-gradient(
-         circle at top left,
-         rgba(230, 116, 88, 0.18),
-         transparent 60%
-       ),
+     background: radial-gradient(circle at top left, rgba(230, 116, 88, 0.18), transparent 60%),
        rgba(20, 12, 12, 0.98);
    }
    
@@ -1767,5 +2071,11 @@
        opacity: 1;
        transform: translateY(0) scale(1);
      }
+   }
+   
+   /* ✅ Respect reduced motion */
+   @media (prefers-reduced-motion: reduce) {
+     html, body { scroll-behavior: auto; }
+     * { animation: none !important; transition: none !important; }
    }
    

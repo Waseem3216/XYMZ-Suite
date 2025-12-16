@@ -56,6 +56,66 @@ function nowISO() {
   return new Date().toISOString().slice(0, 19).replace('T', ' ');
 }
 
+function toDateOnly(value) {
+  // Accepts 'YYYY-MM-DD', 'YYYY-MM-DD HH:MM:SS', ISO, Date
+  if (!value) return null;
+  const s = String(value).trim();
+  if (!s) return null;
+
+  // If it's already YYYY-MM-DD, keep it
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // If starts with YYYY-MM-DD, slice it
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+
+  // Fallback parse
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function normalizeTaskDatesFromBody(body = {}) {
+  // Support both camelCase + snake_case
+  const dueRaw = body.due_date ?? body.dueDate ?? null;
+  const startRaw = body.start_date ?? body.startDate ?? null;
+  const endRaw = body.end_date ?? body.endDate ?? null;
+
+  const due = toDateOnly(dueRaw);
+  let start = toDateOnly(startRaw);
+  let end = toDateOnly(endRaw);
+
+  // If they only set due_date, use it as a 1-day bar
+  if (!start && !end && due) {
+    start = due;
+    end = due;
+  }
+
+  // If they set only one side, make it a 1-day range
+  if (start && !end) end = start;
+  if (end && !start) start = end;
+
+  return { due_date: dueRaw ?? null, start_date: start, end_date: end };
+}
+
+function presentTaskForFrontend(t) {
+  // Keep original DB fields AND add frontend-friendly aliases
+  const start = t.start_date || toDateOnly(t.due_date) || null;
+  const end = t.end_date || start || null;
+
+  return {
+    ...t,
+
+    // camelCase aliases (for Gantt/Frontend)
+    dueDate: t.due_date ?? null,
+    startDate: start,
+    endDate: end
+  };
+}
+
 async function logActivity(orgId, userId, type, payload) {
   if (!orgId) return;
   await db.run(
@@ -65,13 +125,40 @@ async function logActivity(orgId, userId, type, payload) {
   );
 }
 
+// ---- DB Schema auto-upgrade (for Gantt dates) ----
+async function ensureTasksDateColumns() {
+  const schema = db.DB_NAME || process.env.DB_NAME || 'taskdesk';
+
+  async function hasColumn(columnName) {
+    const row = await db.get(
+      `SELECT COUNT(*) AS cnt
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = ?
+         AND TABLE_NAME = 'tasks'
+         AND COLUMN_NAME = ?`,
+      [schema, columnName]
+    );
+    return (row && Number(row.cnt) > 0) || false;
+  }
+
+  try {
+    const hasStart = await hasColumn('start_date');
+    if (!hasStart) {
+      await db.run(`ALTER TABLE tasks ADD COLUMN start_date DATE NULL`, []);
+      console.log('[schema] Added tasks.start_date');
+    }
+
+    const hasEnd = await hasColumn('end_date');
+    if (!hasEnd) {
+      await db.run(`ALTER TABLE tasks ADD COLUMN end_date DATE NULL`, []);
+      console.log('[schema] Added tasks.end_date');
+    }
+  } catch (err) {
+    console.warn('[schema] Could not ensure tasks date columns (permissions/connection?):', err.message);
+  }
+}
+
 // ---- Auth routes ----
-// REGISTER:
-// - name, email, password
-// - security_question, security_answer
-// - is_admin: bool
-// - org_token: 6-digit token REQUIRED if is_admin === true
-// - org_name: optional name for the organization (admins)
 app.post('/api/auth/register', async (req, res) => {
   const {
     email,
@@ -622,10 +709,12 @@ app.get('/api/projects/:projectId/board', authMiddleware, async (req, res) => {
       [projectId]
     );
 
-    const tasks = await db.all(
+    const tasksRaw = await db.all(
       'SELECT * FROM tasks WHERE project_id = ? ORDER BY column_id, position ASC',
       [projectId]
     );
+
+    const tasks = tasksRaw.map(presentTaskForFrontend);
 
     const users = await db.all(
       `SELECT u.id, u.name, u.email
@@ -642,8 +731,42 @@ app.get('/api/projects/:projectId/board', authMiddleware, async (req, res) => {
   }
 });
 
-// ---- Columns ----
+// ---- NEW: Gantt tasks endpoint (optional, but helpful) ----
+app.get('/api/projects/:projectId/gantt-tasks', authMiddleware, async (req, res) => {
+  const projectId = Number(req.params.projectId);
+  if (!projectId) return res.status(400).json({ error: 'Invalid projectId' });
 
+  try {
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [projectId]);
+    if (!project) return res.status(404).json({ error: 'Project not found.' });
+
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) return res.status(403).json({ error: 'Not a member of this org.' });
+
+    const rows = await db.all(
+      `SELECT *
+       FROM tasks
+       WHERE project_id = ?
+       ORDER BY created_at ASC`,
+      [projectId]
+    );
+
+    // Only tasks with usable dates should render in Gantt
+    const tasks = rows
+      .map(presentTaskForFrontend)
+      .filter(t => t.startDate && t.endDate);
+
+    res.json({ project_id: projectId, tasks });
+  } catch (err) {
+    console.error('Error in GET /api/projects/:projectId/gantt-tasks:', err);
+    res.status(500).json({ error: 'Failed to load gantt tasks.' });
+  }
+});
+
+// ---- Columns ----
 app.post('/api/projects/:projectId/columns', authMiddleware, async (req, res) => {
   const projectId = Number(req.params.projectId);
   const { name } = req.body || {};
@@ -698,7 +821,7 @@ app.post('/api/projects/:projectId/columns', authMiddleware, async (req, res) =>
 
 // ---- Tasks ----
 
-// Create task
+// Create task (UPDATED: supports start_date/end_date + due_date fallback)
 app.post('/api/projects/:projectId/tasks', authMiddleware, async (req, res) => {
   const projectId = Number(req.params.projectId);
   const {
@@ -747,10 +870,12 @@ app.post('/api/projects/:projectId/tasks', authMiddleware, async (req, res) => {
     );
     const position = ((maxPosRow && maxPosRow.max_pos) || 0) + 1;
 
+    const dates = normalizeTaskDatesFromBody(req.body);
+
     const info = await db.run(
       `INSERT INTO tasks
-       (project_id, column_id, title, description, priority, position, due_date, assigned_to, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (project_id, column_id, title, description, priority, position, due_date, start_date, end_date, assigned_to, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         projectId,
         column_id,
@@ -758,15 +883,19 @@ app.post('/api/projects/:projectId/tasks', authMiddleware, async (req, res) => {
         description || '',
         priority,
         position,
-        due_date || null,
+        due_date || dates.due_date || null,
+        dates.start_date,
+        dates.end_date,
         assigned_to || null,
         createdAt
       ]
     );
 
-    const task = await db.get('SELECT * FROM tasks WHERE id = ?', [
+    const taskRaw = await db.get('SELECT * FROM tasks WHERE id = ?', [
       info.lastInsertId
     ]);
+
+    const task = presentTaskForFrontend(taskRaw);
 
     await logActivity(project.org_id, req.user.id, 'task_created', {
       project_id: projectId,
@@ -781,7 +910,7 @@ app.post('/api/projects/:projectId/tasks', authMiddleware, async (req, res) => {
   }
 });
 
-// Update task
+// Update task (UPDATED: supports start_date/end_date + due_date fallback)
 app.put('/api/tasks/:taskId', authMiddleware, async (req, res) => {
   const taskId = Number(req.params.taskId);
   if (!taskId) return res.status(400).json({ error: 'Invalid taskId' });
@@ -795,11 +924,11 @@ app.put('/api/tasks/:taskId', authMiddleware, async (req, res) => {
   } = req.body || {};
 
   try {
-    const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
-    if (!task) return res.status(404).json({ error: 'Task not found.' });
+    const taskExisting = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    if (!taskExisting) return res.status(404).json({ error: 'Task not found.' });
 
     const project = await db.get('SELECT * FROM projects WHERE id = ?', [
-      task.project_id
+      taskExisting.project_id
     ]);
 
     const member = await db.get(
@@ -810,29 +939,47 @@ app.put('/api/tasks/:taskId', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Not a member of this org.' });
     }
 
-    const updated = {
-      title: title ?? task.title,
-      description: description ?? task.description,
-      priority: priority ?? task.priority,
-      due_date: due_date ?? task.due_date,
-      assigned_to: assigned_to ?? task.assigned_to
-    };
+    // Normalize dates from incoming body; if none provided, keep existing
+    const incomingDates = normalizeTaskDatesFromBody(req.body);
+
+    const nextTitle = title ?? taskExisting.title;
+    const nextDesc = description ?? taskExisting.description;
+    const nextPriority = priority ?? taskExisting.priority;
+    const nextDue = due_date ?? taskExisting.due_date;
+
+    // If they explicitly sent start/end, use them. If not, keep existing.
+    const nextStart =
+      incomingDates.start_date !== null || incomingDates.end_date !== null || incomingDates.due_date !== null
+        ? (incomingDates.start_date ?? taskExisting.start_date ?? null)
+        : (taskExisting.start_date ?? null);
+
+    const nextEnd =
+      incomingDates.start_date !== null || incomingDates.end_date !== null || incomingDates.due_date !== null
+        ? (incomingDates.end_date ?? taskExisting.end_date ?? null)
+        : (taskExisting.end_date ?? null);
+
+    // If still nothing but we have due_date, make it a 1-day bar
+    const finalStart = nextStart || toDateOnly(nextDue) || null;
+    const finalEnd = nextEnd || finalStart || null;
 
     await db.run(
       `UPDATE tasks
-       SET title = ?, description = ?, priority = ?, due_date = ?, assigned_to = ?
+       SET title = ?, description = ?, priority = ?, due_date = ?, start_date = ?, end_date = ?, assigned_to = ?
        WHERE id = ?`,
       [
-        updated.title,
-        updated.description,
-        updated.priority,
-        updated.due_date,
-        updated.assigned_to,
+        nextTitle,
+        nextDesc,
+        nextPriority,
+        nextDue,
+        finalStart,
+        finalEnd,
+        assigned_to ?? taskExisting.assigned_to,
         taskId
       ]
     );
 
-    const saved = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    const savedRaw = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    const saved = presentTaskForFrontend(savedRaw);
 
     await logActivity(project.org_id, req.user.id, 'task_updated', {
       project_id: project.id,
@@ -910,7 +1057,8 @@ app.patch('/api/tasks/:taskId/move', authMiddleware, async (req, res) => {
       [to_column_id, newPos, taskId]
     );
 
-    const saved = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    const savedRaw = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    const saved = presentTaskForFrontend(savedRaw);
 
     await logActivity(project.org_id, req.user.id, 'task_moved', {
       project_id: project.id,
@@ -1055,9 +1203,7 @@ app.post('/api/tasks/:taskId/comments', authMiddleware, async (req, res) => {
   }
 });
 
-// ---- Attachments (simple file upload + list + delete) ----
-
-// Upload a new attachment for a task
+// ---- Attachments ----
 app.post(
   '/api/tasks/:taskId/attachments',
   authMiddleware,
@@ -1103,7 +1249,6 @@ app.post(
         [info.lastInsertId]
       );
 
-      // Add a convenient URL field so the frontend can link directly
       const attachmentWithUrl = {
         ...attachment,
         url: `/uploads/${attachment.filename}`
@@ -1123,116 +1268,109 @@ app.post(
   }
 );
 
-// List all attachments for a task
-app.get(
-  '/api/tasks/:taskId/attachments',
-  authMiddleware,
-  async (req, res) => {
-    const taskId = Number(req.params.taskId);
-    if (!taskId) return res.status(400).json({ error: 'Invalid taskId' });
+app.get('/api/tasks/:taskId/attachments', authMiddleware, async (req, res) => {
+  const taskId = Number(req.params.taskId);
+  if (!taskId) return res.status(400).json({ error: 'Invalid taskId' });
 
-    try {
-      const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
-      if (!task) return res.status(404).json({ error: 'Task not found.' });
+  try {
+    const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
 
-      const project = await db.get('SELECT * FROM projects WHERE id = ?', [
-        task.project_id
-      ]);
-      const member = await db.get(
-        'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
-        [project.org_id, req.user.id]
-      );
-      if (!member) {
-        return res.status(403).json({ error: 'Not a member of this org.' });
-      }
-
-      const rows = await db.all(
-        `SELECT id, task_id, filename, original_name, mime_type, size, created_at
-         FROM attachments
-         WHERE task_id = ?
-         ORDER BY created_at ASC`,
-        [taskId]
-      );
-
-      const attachments = rows.map((a) => ({
-        ...a,
-        url: `/uploads/${a.filename}`
-      }));
-
-      res.json({ attachments });
-    } catch (err) {
-      console.error('Error in GET /api/tasks/:taskId/attachments:', err);
-      res.status(500).json({ error: 'Failed to load attachments.' });
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [
+      task.project_id
+    ]);
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
     }
+
+    const rows = await db.all(
+      `SELECT id, task_id, filename, original_name, mime_type, size, created_at
+       FROM attachments
+       WHERE task_id = ?
+       ORDER BY created_at ASC`,
+      [taskId]
+    );
+
+    const attachments = rows.map((a) => ({
+      ...a,
+      url: `/uploads/${a.filename}`
+    }));
+
+    res.json({ attachments });
+  } catch (err) {
+    console.error('Error in GET /api/tasks/:taskId/attachments:', err);
+    res.status(500).json({ error: 'Failed to load attachments.' });
   }
-);
+});
 
-// Delete a single attachment (DB + file on disk)
-app.delete(
-  '/api/attachments/:attachmentId',
-  authMiddleware,
-  async (req, res) => {
-    const attachmentId = Number(req.params.attachmentId);
-    if (!attachmentId) {
-      return res.status(400).json({ error: 'Invalid attachmentId' });
-    }
-
-    try {
-      const attachment = await db.get(
-        'SELECT * FROM attachments WHERE id = ?',
-        [attachmentId]
-      );
-      if (!attachment) {
-        return res.status(404).json({ error: 'Attachment not found.' });
-      }
-
-      const task = await db.get(
-        'SELECT * FROM tasks WHERE id = ?',
-        [attachment.task_id]
-      );
-      if (!task) {
-        return res.status(404).json({ error: 'Parent task not found.' });
-      }
-
-      const project = await db.get(
-        'SELECT * FROM projects WHERE id = ?',
-        [task.project_id]
-      );
-      const member = await db.get(
-        'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
-        [project.org_id, req.user.id]
-      );
-      if (!member) {
-        return res.status(403).json({ error: 'Not a member of this org.' });
-      }
-
-      // Delete DB row
-      await db.run('DELETE FROM attachments WHERE id = ?', [attachmentId]);
-
-      // Try to delete the physical file (ignore if missing)
-      const filePath = path.join(UPLOADS_DIR, attachment.filename);
-      fs.unlink(filePath, (err) => {
-        if (err && err.code !== 'ENOENT') {
-          console.warn('Failed to delete attachment file:', filePath, err);
-        }
-      });
-
-      await logActivity(project.org_id, req.user.id, 'attachment_deleted', {
-        project_id: project.id,
-        task_id: task.id,
-        attachment_id
-      });
-
-      res.json({ success: true });
-    } catch (err) {
-      console.error('Error in DELETE /api/attachments/:attachmentId:', err);
-      res.status(500).json({ error: 'Failed to delete attachment.' });
-    }
+app.delete('/api/attachments/:attachmentId', authMiddleware, async (req, res) => {
+  const attachmentId = Number(req.params.attachmentId);
+  if (!attachmentId) {
+    return res.status(400).json({ error: 'Invalid attachmentId' });
   }
-);
+
+  try {
+    const attachment = await db.get(
+      'SELECT * FROM attachments WHERE id = ?',
+      [attachmentId]
+    );
+    if (!attachment) {
+      return res.status(404).json({ error: 'Attachment not found.' });
+    }
+
+    const task = await db.get(
+      'SELECT * FROM tasks WHERE id = ?',
+      [attachment.task_id]
+    );
+    if (!task) {
+      return res.status(404).json({ error: 'Parent task not found.' });
+    }
+
+    const project = await db.get(
+      'SELECT * FROM projects WHERE id = ?',
+      [task.project_id]
+    );
+    const member = await db.get(
+      'SELECT * FROM org_members WHERE org_id = ? AND user_id = ?',
+      [project.org_id, req.user.id]
+    );
+    if (!member) {
+      return res.status(403).json({ error: 'Not a member of this org.' });
+    }
+
+    await db.run('DELETE FROM attachments WHERE id = ?', [attachmentId]);
+
+    const filePath = path.join(UPLOADS_DIR, attachment.filename);
+    fs.unlink(filePath, (err) => {
+      if (err && err.code !== 'ENOENT') {
+        console.warn('Failed to delete attachment file:', filePath, err);
+      }
+    });
+
+    await logActivity(project.org_id, req.user.id, 'attachment_deleted', {
+      project_id: project.id,
+      task_id: task.id,
+      attachment_id
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error in DELETE /api/attachments/:attachmentId:', err);
+    res.status(500).json({ error: 'Failed to delete attachment.' });
+  }
+});
 
 // Static route to serve uploaded files (dev only)
 app.use('/uploads', express.static(UPLOADS_DIR));
+
+/* -------------------------
+   BI / Activity / Fleet / Radar / Delete Project
+   (UNCHANGED from your file)
+   ------------------------- */
 
 // ---- BI summary (XYMZ.BI) ----
 app.get('/api/orgs/:orgId/bi-summary', authMiddleware, async (req, res) => {
@@ -1479,7 +1617,6 @@ app.get('/api/orgs/:orgId/radar', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Not a member of this org.' });
     }
 
-    // Projects
     const projects = await db.all(
       'SELECT id, name, status, created_at FROM projects WHERE org_id = ?',
       [orgId]
@@ -1490,7 +1627,6 @@ app.get('/api/orgs/:orgId/radar', authMiddleware, async (req, res) => {
       (p.status || '').toLowerCase() === 'active'
     ).length;
 
-    // Tasks + status from columns
     const tasks = await db.all(
       `SELECT 
          t.*,
@@ -1550,7 +1686,6 @@ app.get('/api/orgs/:orgId/radar', authMiddleware, async (req, res) => {
       }
     });
 
-    // Members count
     const memberCountsRow = await db.get(
       `SELECT 
          COUNT(*) AS total_members,
@@ -1565,7 +1700,6 @@ app.get('/api/orgs/:orgId/radar', authMiddleware, async (req, res) => {
     const owners = memberCountsRow.owners || 0;
     const admins = memberCountsRow.admins || 0;
 
-    // Most recent activity timestamp
     const lastActivityRow = await db.get(
       'SELECT created_at FROM activity_log WHERE org_id = ? ORDER BY created_at DESC LIMIT 1',
       [orgId]
@@ -1659,6 +1793,17 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(FRONTEND_PATH, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`XYMZ backend running at http://localhost:${PORT}`);
+// ---- Bootstrap server (ensures schema first) ----
+async function bootstrap() {
+  // ensure tasks has start_date/end_date so gantt bars can be drawn
+  await ensureTasksDateColumns();
+
+  app.listen(PORT, () => {
+    console.log(`XYMZ backend running at http://localhost:${PORT}`);
+  });
+}
+
+bootstrap().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
