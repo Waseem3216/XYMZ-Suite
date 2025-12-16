@@ -639,329 +639,268 @@
      margin-bottom: 10px;
    }
    
-   /* --------------------------------------------------
-      XYMZ.Gantt
-      -------------------------------------------------- */
-   
+/* --------------------------------------------------
+   XYMZ.Gantt (Fixed “MS Project” Layout)
+   -------------------------------------------------- */
+
    .gantt-view {
-     padding: 12px 14px;
-     margin-bottom: 10px;
-   }
-   
-   /* If your Gantt view uses a header/tool row */
-   .gantt-header h2 {
-     margin: 0 0 4px;
-   }
-   
-   .gantt-header p {
-     margin: 0 0 8px;
-   }
-   
-   /* Meta + empty messaging */
-   #gantt-meta {
-     margin-top: 6px;
-     font-size: 0.85rem;
-     color: var(--muted);
-   }
-   
-   #gantt-empty {
-     margin-top: 10px;
-     padding: 10px 12px;
-     border-radius: 12px;
-     border: 1px dashed rgba(148, 163, 184, 0.35);
-     background: rgba(15, 23, 42, 0.82);
-     color: var(--muted);
-     font-size: 0.85rem;
-   }
-   
-   /* Controls (works whether you used classes or IDs) */
-   .gantt-controls,
-   .gantt-toolbar {
-     margin-top: 8px;
-     display: flex;
-     flex-wrap: wrap;
-     gap: 8px;
-     align-items: center;
-   }
-   
-   .gantt-controls .btn,
-   .gantt-toolbar .btn {
-     white-space: nowrap;
-   }
-   
-   .gantt-toggle {
-     display: inline-flex;
-     align-items: center;
-     gap: 8px;
-     padding: 6px 10px;
-     border-radius: 999px;
-     border: 1px solid rgba(148, 163, 184, 0.35);
-     background: rgba(15, 23, 42, 0.78);
-     font-size: 0.78rem;
-     color: var(--muted);
-     letter-spacing: 0.08em;
-     text-transform: uppercase;
-   }
-   
-   /* Layout */
-   .gantt-body {
-     margin-top: 10px;
-     display: grid;
-     grid-template-columns: 360px minmax(0, 1fr);
-     grid-template-rows: auto 1fr;
-     gap: 10px;
-     align-items: start;
-   }
-   
-   /* ✅ grid placement for the 3 key panels */
-   .gantt-body #gantt-task-list {
-     grid-column: 1;
-     grid-row: 1 / 3;
-   }
-   .gantt-body #gantt-timeline-header {
-     grid-column: 2;
-     grid-row: 1;
-   }
-   .gantt-body #gantt-timeline {
-     grid-column: 2;
-     grid-row: 2;
-   }
-   
-   /* --------------------------------------------------
-      ✅ Sticky headers + MS Project-like grid / striping
-      -------------------------------------------------- */
-   
-   /* Prevent jitter from scrollbars resizing the layout */
-   #gantt-task-list,
-   #gantt-timeline {
-     scrollbar-gutter: stable;
-   }
-   
-   /* Task list panel */
-   #gantt-task-list {
-     border-radius: 12px;
-     border: 1px solid rgba(51, 65, 85, 0.9);
-     background: rgba(15, 23, 42, 0.9);
-     overflow: auto;
-     position: relative;
-   
-     /* ✅ keep vertical scroll area stable (no “jump” when content changes) */
-     overflow-y: scroll;
-   }
-   
-   /* ✅ LEFT header sticky (expects a header row element inside #gantt-task-list) */
-   #gantt-task-list .gantt-task-header,
-   #gantt-task-list .gantt-task-header-row {
-     position: sticky;
-     top: var(--sticky-offset);
-     z-index: 20;
-     background: var(--gantt-header-bg);
-     border-bottom: 1px solid var(--gantt-grid);
-     backdrop-filter: blur(8px);
-   }
-   
-   /* If your header is the first child (common), make it sticky too */
-   #gantt-task-list > :first-child.gantt-task-header,
-   #gantt-task-list > :first-child.gantt-task-header-row {
-     position: sticky;
-     top: var(--sticky-offset);
-   }
-   
-   /* ✅ Make task rows feel like a table */
-   .gantt-task-row {
-     border-bottom: 1px solid var(--gantt-grid);
-     display: grid;
-     grid-template-columns: minmax(180px, 1fr) 96px 120px 120px;
-     gap: 10px;
-     padding: 8px 10px;
-     align-items: center;
-   
-     /* keep row height stable */
-     min-height: 44px;
-   }
-   
-   /* Row striping */
-   #gantt-task-list .gantt-task-row:nth-of-type(odd) {
-     background: var(--gantt-row-odd);
-   }
-   #gantt-task-list .gantt-task-row:nth-of-type(even) {
-     background: var(--gantt-row-even);
-   }
-   
-   .gantt-task-row:hover {
-     background: rgba(31, 41, 55, 0.65);
-   }
-   
-   .gantt-task-title {
-     font-size: 0.88rem;
-     font-weight: 500;
-   }
-   
-   /* these match the updated app.js task-row cells */
-   .gantt-task-duration,
-   .gantt-task-start,
-   .gantt-task-end {
-     font-size: 0.78rem;
-     color: var(--muted);
-     white-space: nowrap;
-     text-align: right;
-   
-     /* ✅ column separators */
-     border-left: 1px solid var(--gantt-grid);
-     padding-left: 10px;
-   }
-   
-   /* Backwards-compat (older class name) */
-   .gantt-task-due {
-     font-size: 0.78rem;
-     color: var(--muted);
-     white-space: nowrap;
-   }
-   
-   .gantt-task-done .gantt-task-title {
-     text-decoration: line-through;
-     opacity: 0.75;
-   }
-   
-   /* Timeline header */
-   #gantt-timeline-header {
-     border-radius: 12px;
-     border: 1px solid rgba(51, 65, 85, 0.9);
-     background: rgba(15, 23, 42, 0.9);
-     position: sticky;               /* ✅ RIGHT header sticky */
-     top: var(--sticky-offset);
-     z-index: 30;
-     overflow-x: auto;
-     overflow-y: hidden;
-     backdrop-filter: blur(10px);
-   
-     /* Prevent header scrollbar height from causing jitter */
-     scrollbar-gutter: stable;
-   }
-   
-   /* Hide header scrollbar “bar” but still allow scrolling */
-   #gantt-timeline-header::-webkit-scrollbar {
-     height: 0px;
-   }
-   #gantt-timeline-header {
-     scrollbar-width: none; /* Firefox */
-   }
-   
-   /* internal header rows */
-   #gantt-timeline-months,
-   #gantt-timeline-days {
-     width: 100%;
-   }
-   
-   .gantt-months-row {
-     display: flex;
-     min-height: 34px;
-     border-bottom: 1px solid var(--gantt-grid);
-   }
-   
-   .gantt-month-cell {
-     display: flex;
-     align-items: center;
-     padding: 0 10px;
-     font-size: 0.78rem;
-     letter-spacing: 0.08em;
-     text-transform: uppercase;
-     color: rgba(229, 231, 235, 0.92);
-     border-right: 1px solid var(--gantt-grid);
-     white-space: nowrap;
-   }
-   
-   .gantt-days-row {
-     display: flex;
-     min-height: 44px;
-   }
-   
-   .gantt-day-cell {
-     display: flex;
-     flex-direction: column;
-     justify-content: center;
-     align-items: center;
-     gap: 2px;
-     border-right: 1px solid var(--gantt-grid);
-     width: var(--gantt-day-width);
-   }
-   
-   .gantt-day-wk {
-     font-size: 0.7rem;
-     color: rgba(156, 163, 175, 0.9);
-     letter-spacing: 0.08em;
-     text-transform: uppercase;
-   }
-   
-   .gantt-day-num {
-     font-size: 0.78rem;
-     color: rgba(229, 231, 235, 0.92);
-   }
-   
-   /* Backwards-compat (older class name) */
-   .gantt-day-label {
-     color: var(--muted);
-   }
-   
-   .gantt-day-today {
-     background: rgba(56, 189, 248, 0.10);
-   }
-   
-   /* Timeline body */
-   #gantt-timeline {
-     border-radius: 12px;
-     border: 1px solid rgba(51, 65, 85, 0.9);
-     background: rgba(15, 23, 42, 0.9);
-     overflow: auto;
-     position: relative;
-   
-     /* ✅ reduce “layout jitter” when scrollbars appear */
-     overflow-y: scroll;
-   
-     /* ✅ MS Project-like vertical day gridlines */
-     background-image:
-       repeating-linear-gradient(
-         to right,
-         var(--gantt-grid) 0px,
-         var(--gantt-grid) 1px,
-         transparent 1px,
-         transparent var(--gantt-day-width)
-       );
-   }
-   
-   /* Backwards-compat (older header row class) */
-   .gantt-header-row {
-     display: flex;
-     min-height: 44px;
-   }
-   
-   /* lanes created by JS */
-   .gantt-lane {
-     border-bottom: 1px solid var(--gantt-grid);
-     min-height: 44px;
-   }
-   
-   /* ✅ row striping on the timeline lanes too */
-   #gantt-timeline .gantt-lane:nth-of-type(odd) {
-     background-color: rgba(0, 0, 0, 0);
-   }
-   #gantt-timeline .gantt-lane:nth-of-type(even) {
-     background-color: rgba(255, 255, 255, 0.03);
-   }
-   
-   .gantt-lane:hover {
-     background: rgba(31, 41, 55, 0.35);
-   }
-   
-   .gantt-bar {
-     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.7);
-     transition: transform 140ms ease, box-shadow 200ms ease, opacity 180ms ease;
-   }
-   
-   .gantt-bar:hover {
-     transform: translateY(-1px);
-     box-shadow: 0 14px 30px rgba(15, 23, 42, 0.85);
-   }
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  
+  .gantt-header h2 {
+    margin: 0 0 4px;
+  }
+  
+  .gantt-header p {
+    margin: 0 0 8px;
+  }
+  
+  #gantt-meta {
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  
+  #gantt-empty {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px dashed rgba(148, 163, 184, 0.35);
+    background: rgba(15, 23, 42, 0.82);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  
+  /* === GRID LAYOUT: Left table + Right timeline === */
+  .gantt-grid {
+    display: grid;
+    grid-template-columns: 420px minmax(0, 1fr);
+    align-items: start;
+    margin-top: 12px;
+    height: 70vh;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  
+  /* ==== LEFT PANEL (TASK TABLE) ==== */
+  .gantt-left {
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 23, 42, 0.95);
+    border-right: 1px solid rgba(56, 189, 248, 0.1);
+    overflow: hidden;
+  }
+  
+  .gantt-left-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(15, 23, 42, 0.98);
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) 70px 90px 90px;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  
+  .gantt-task-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+  
+  .gantt-task-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) 70px 90px 90px;
+    gap: 10px;
+    padding: 8px 12px;
+    align-items: center;
+    border-bottom: 1px solid rgba(31, 41, 55, 1);
+    font-size: 0.85rem;
+    transition: background 0.15s ease;
+  }
+  
+  .gantt-task-row:nth-child(even) {
+    background: rgba(15, 23, 42, 0.93);
+  }
+  
+  .gantt-task-row:hover {
+    background: rgba(31, 41, 55, 0.65);
+  }
+  
+  .gantt-task-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+  }
+  
+  .gantt-task-duration,
+  .gantt-task-start,
+  .gantt-task-end {
+    text-align: right;
+    color: var(--muted);
+    font-size: 0.78rem;
+  }
+  
+  .gantt-task-done {
+    opacity: 0.65;
+    text-decoration: line-through;
+  }
+  
+  /* ==== RIGHT PANEL (TIMELINE) ==== */
+  .gantt-right {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: rgba(15, 23, 42, 0.95);
+  }
+  
+  /* Sticky timeline header */
+  .gantt-timeline-header {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: rgba(15, 23, 42, 0.98);
+    border-bottom: 1px solid rgba(56, 189, 248, 0.1);
+  }
+  
+  /* Month + day rows */
+  .gantt-months-row {
+    display: flex;
+    min-height: 34px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  
+  .gantt-month-cell {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(229, 231, 235, 0.92);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  
+  .gantt-days-row {
+    display: flex;
+    min-height: 44px;
+  }
+  
+  .gantt-day-cell {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  
+  .gantt-day-wk {
+    font-size: 0.7rem;
+    color: rgba(156, 163, 175, 0.9);
+    letter-spacing: 0.08em;
+  }
+  
+  .gantt-day-num {
+    font-size: 0.78rem;
+    color: rgba(229, 231, 235, 0.92);
+  }
+  
+  .gantt-day-today {
+    background: rgba(56, 189, 248, 0.08);
+  }
+  
+  /* Scrollable lanes container */
+  .gantt-timeline {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    border-left: 1px solid rgba(56, 189, 248, 0.1);
+  }
+  
+  /* Each task lane */
+  .gantt-lane {
+    position: relative;
+    height: 44px;
+    border-bottom: 1px solid rgba(31, 41, 55, 1);
+  }
+  
+  .gantt-lane:nth-child(even) {
+    background: rgba(15, 23, 42, 0.93);
+  }
+  
+  /* Gantt bar itself */
+  .gantt-bar {
+    position: absolute;
+    top: 10px;
+    height: 24px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(99, 102, 241, 0.55);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.7);
+    transition: transform 140ms ease, box-shadow 200ms ease, opacity 180ms ease;
+    cursor: grab;
+  }
+  
+  .gantt-bar:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.85);
+  }
+  
+  /* High/Low priority colors */
+  .gantt-bar[data-priority="high"] {
+    background: rgba(239, 68, 68, 0.55);
+  }
+  
+  .gantt-bar[data-priority="low"] {
+    background: rgba(34, 197, 94, 0.4);
+  }
+  
+  /* Completed tasks fade out */
+  .gantt-task-done .gantt-bar {
+    opacity: 0.5;
+  }
+  
+  /* Scroll sync fix */
+  .gantt-task-list::-webkit-scrollbar,
+  .gantt-timeline::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .gantt-task-list::-webkit-scrollbar-thumb,
+  .gantt-timeline::-webkit-scrollbar-thumb {
+    background: rgba(56, 189, 248, 0.2);
+    border-radius: 4px;
+  }
+  
+  /* Prevent layout jitter */
+  .gantt-task-list,
+  .gantt-timeline {
+    scrollbar-gutter: stable;
+  }
+  
+  /* Compact responsive adjustment */
+  @media (max-width: 960px) {
+    .gantt-grid {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+  
+    .gantt-left-header {
+      position: static;
+    }
+  
+    .gantt-timeline-header {
+      position: static;
+    }
+  }  
    
    /* --------------------------------------------------
       XYMZ.BI
