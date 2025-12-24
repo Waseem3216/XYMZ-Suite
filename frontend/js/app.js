@@ -248,59 +248,78 @@
     els.btnTheme.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
   }
 
-  // ✅ NEW: centralized chart theme tokens (forces correct text color in light mode)
-  function getChartThemeTokens() {
-    const styles = getComputedStyle(document.documentElement);
-    const text = (styles.getPropertyValue('--text') || '').trim() || '#111827';
-    const muted = (styles.getPropertyValue('--muted') || '').trim() || '#6b7280';
-    const border2 = (styles.getPropertyValue('--border2') || '').trim() || 'rgba(148,163,184,0.35)';
-    return { text, muted, border2 };
+  // ✅ NEW: force chart text/ticks/legend colors to follow LIGHT/DARK mode
+  function applyChartTheme() {
+    if (!window.Chart) return;
+
+    const root = document.documentElement;
+    const theme = normalizeTheme(root.getAttribute('data-theme'));
+
+    const styles = getComputedStyle(root);
+    const textVar = (styles.getPropertyValue('--text') || '').trim();
+    const mutedVar = (styles.getPropertyValue('--muted') || '').trim();
+    const borderVar = (styles.getPropertyValue('--border') || '').trim();
+    const border2Var = (styles.getPropertyValue('--border2') || '').trim();
+
+    const text = textVar || (theme === 'light' ? '#0b1220' : '#e5e7eb');
+    const muted = mutedVar || (theme === 'light' ? '#475569' : '#9ca3af');
+    const grid = borderVar || border2Var || (theme === 'light' ? 'rgba(148,163,184,0.35)' : 'rgba(51,65,85,0.9)');
+
+    const charts = [S.biChart, S.biTaskChart].filter(Boolean);
+
+    charts.forEach((ch) => {
+      // Legend + titles
+      if (ch.options?.plugins?.legend?.labels) ch.options.plugins.legend.labels.color = text;
+      if (ch.options?.plugins?.title) ch.options.plugins.title.color = text;
+
+      // Axes text + grid
+      Object.values(ch.options.scales || {}).forEach((s) => {
+        if (s.ticks) s.ticks.color = muted;
+        if (s.title) s.title.color = text;
+        if (s.grid) s.grid.color = grid;
+      });
+
+      try {
+        ch.update('none');
+      } catch {
+        try {
+          ch.update();
+        } catch {}
+      }
+    });
   }
 
-  // ✅ UPDATED: hard-apply to defaults AND existing charts
   function syncChartsToTheme() {
     if (!window.Chart) return;
 
-    const { text, border2 } = getChartThemeTokens();
+    const root = document.documentElement;
+    const theme = normalizeTheme(root.getAttribute('data-theme'));
+    const styles = getComputedStyle(root);
+
+    // ✅ FIX: light-mode fallback is dark text, not white
+    const text = (styles.getPropertyValue('--text') || '').trim() || (theme === 'light' ? '#0b1220' : '#e5e7eb');
+
+    // prefer border2, then border, then theme fallback
+    const border2 =
+      (styles.getPropertyValue('--border2') || '').trim() ||
+      (styles.getPropertyValue('--border') || '').trim() ||
+      (theme === 'light' ? 'rgba(148,163,184,0.35)' : 'rgba(51,65,85,0.9)');
 
     try {
       window.Chart.defaults.color = text;
       window.Chart.defaults.borderColor = border2;
-      window.Chart.defaults.plugins = window.Chart.defaults.plugins || {};
-      window.Chart.defaults.plugins.legend = window.Chart.defaults.plugins.legend || {};
-      window.Chart.defaults.plugins.legend.labels = window.Chart.defaults.plugins.legend.labels || {};
-      window.Chart.defaults.plugins.legend.labels.color = text;
+
+      // Some Chart.js builds support this; safe-guarded
+      if (window.Chart.defaults?.scale?.grid) window.Chart.defaults.scale.grid.color = border2;
     } catch {}
 
-    const patchChart = (ch) => {
-      if (!ch) return;
-      try {
-        ch.options = ch.options || {};
-        ch.options.plugins = ch.options.plugins || {};
-        ch.options.plugins.legend = ch.options.plugins.legend || {};
-        ch.options.plugins.legend.labels = ch.options.plugins.legend.labels || {};
-        ch.options.plugins.legend.labels.color = text;
+    // ✅ NEW: also apply per-chart option colors (ticks/legend) so existing charts update correctly
+    applyChartTheme();
 
-        if (ch.options.scales) {
-          Object.values(ch.options.scales).forEach((scale) => {
-            if (!scale) return;
-            scale.ticks = scale.ticks || {};
-            scale.ticks.color = text;
-
-            scale.grid = scale.grid || {};
-            scale.grid.color = border2;
-
-            scale.border = scale.border || {};
-            scale.border.color = border2;
-          });
-        }
-
-        ch.update('none');
-      } catch {}
-    };
-
-    patchChart(S.biChart);
-    patchChart(S.biTaskChart);
+    try {
+      if (S.biChart) S.biChart.update('none');
+      if (S.biTaskChart) S.biTaskChart.update('none');
+    } catch {}
   }
 
   function applyTheme(theme, persist = true) {
@@ -309,7 +328,7 @@
     if (persist) storage.setStr(KEYS.theme, t);
     updateThemeMetaColor(t);
     updateThemeButton(t);
-    syncChartsToTheme();
+    syncChartsToTheme(); // ✅ includes applyChartTheme now
   }
 
   function initTheme() {
@@ -1224,8 +1243,6 @@
       if (!window.Chart) throw new Error('Chart.js not loaded. Check your index.html script tag.');
       ensureCanvasHasHeight(els.biChartCanvas, 360);
 
-      const { text, border2 } = getChartThemeTokens();
-
       if (S.biChart) { try { S.biChart.destroy(); } catch {} }
       const ctx = els.biChartCanvas.getContext('2d');
 
@@ -1242,23 +1259,9 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          scales: {
-            x: {
-              stacked: true,
-              ticks: { color: text },
-              grid: { color: border2 },
-              border: { color: border2 }
-            },
-            y: {
-              stacked: true,
-              beginAtZero: true,
-              ticks: { color: text },
-              grid: { color: border2 },
-              border: { color: border2 }
-            }
-          },
+          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
           plugins: {
-            legend: { position: 'bottom', labels: { color: text } },
+            legend: { position: 'bottom' },
             tooltip: {
               callbacks: {
                 afterBody(ctxItems) {
@@ -1280,6 +1283,7 @@
         }
       });
 
+      // ✅ updated sync will make text black in light mode
       syncChartsToTheme();
 
       setText(els.biMeta, 'Click a project bar to see its tasks.');
@@ -1308,8 +1312,6 @@
       if (!window.Chart) throw new Error('Chart.js not loaded. Check your index.html script tag.');
       ensureCanvasHasHeight(els.biTaskChartCanvas, 320);
 
-      const { text, border2 } = getChartThemeTokens();
-
       if (S.biTaskChart) { try { S.biTaskChart.destroy(); } catch {} }
       const ctx = els.biTaskChartCanvas.getContext('2d');
 
@@ -1319,23 +1321,9 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          scales: {
-            x: {
-              ticks: { color: text },
-              grid: { color: border2 },
-              border: { color: border2 }
-            },
-            y: {
-              ticks: { color: text },
-              grid: { color: border2 },
-              border: { color: border2 }
-            }
-          },
           plugins: {
-            legend: { position: 'top', labels: { color: text } },
             tooltip: {
               callbacks: {
-                // ✅ UPDATED: due date shows DATE ONLY (no time)
                 afterBody(c) {
                   const t = tasks[c[0].dataIndex];
                   const member = (S.board.members || []).find((m) => m.id === t.assigned_to) || null;
@@ -1351,7 +1339,9 @@
         }
       });
 
+      // ✅ updated sync will make text black in light mode
       syncChartsToTheme();
+
       setBiDownloadButtonsEnabled(true);
     } catch (err) {
       setText(els.biMeta, `Error: ${err.message}`);
