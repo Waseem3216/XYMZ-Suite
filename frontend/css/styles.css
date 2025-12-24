@@ -291,7 +291,6 @@ html[data-theme="light"] .btn.primary {
   position: absolute;
   inset: 8px;
   border-radius: 12px;
-  border: 1px solid rgba(2, 6, 23, 0.10);
   pointer-events: none;
 }
 
@@ -620,7 +619,6 @@ html[data-theme="light"] .btn.primary {
 }
 .board::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.25);
-  border-radius: 999px;
 }
 .board::-webkit-scrollbar-track {
   background: transparent;
