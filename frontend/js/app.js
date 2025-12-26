@@ -2337,6 +2337,406 @@
   }
 
   /* =========================
+     MOBILE UI ENHANCEMENTS (STICKY TOPBAR + DRAWER)
+     ✅ Fixes: topbar scrolling away on mobile
+     ✅ Adds: hamburger menu + overlay + nice mobile spacing
+  ========================== */
+  function findTopbarEl() {
+    // Try common ids/classes first
+    const direct =
+      document.getElementById('topbar') ||
+      document.getElementById('app-topbar') ||
+      document.getElementById('app-header') ||
+      document.querySelector('.topbar') ||
+      document.querySelector('.app-topbar') ||
+      document.querySelector('header');
+
+    if (direct) return direct;
+
+    // Fallback: walk up from brand title
+    if (els.brandTitle && els.brandTitle.closest) {
+      return (
+        els.brandTitle.closest('header') ||
+        els.brandTitle.closest('.topbar') ||
+        els.brandTitle.closest('#topbar') ||
+        els.brandTitle.parentElement
+      );
+    }
+    return null;
+  }
+
+  function findSidebarEl() {
+    // Prefer a real sidebar container if your HTML has one
+    return (
+      document.getElementById('sidebar') ||
+      document.getElementById('left-panel') ||
+      document.querySelector('.sidebar') ||
+      document.querySelector('aside') ||
+      // Fallback: use the common ancestor of org switcher + project list
+      (els.orgSwitcher && els.orgSwitcher.closest && els.orgSwitcher.closest('aside, .sidebar, #sidebar, #left-panel')) ||
+      (els.projectListEl && els.projectListEl.closest && els.projectListEl.closest('aside, .sidebar, #sidebar, #left-panel')) ||
+      null
+    );
+  }
+
+  function injectMobileStyles() {
+    if (document.getElementById('xymz-mobile-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'xymz-mobile-style';
+    style.textContent = `
+      /* ===== Mobile polish + sticky topbar ===== */
+      :root { --xymz-topbar-h: 64px; }
+
+      /* Make taps feel better on phones */
+      button, .suite-tab, .radar-clickable, .task-card { -webkit-tap-highlight-color: transparent; }
+
+      /* Sticky topbar wrapper */
+      .xymz-topbar {
+        position: relative;
+        z-index: 50;
+      }
+
+      /* When we "lock" the topbar (mobile), keep content from hiding behind it */
+      body.xymz-has-sticky-topbar {
+        padding-top: var(--xymz-topbar-h);
+      }
+
+      /* Subtle shadow when you scroll */
+      .xymz-topbar.xymz-topbar-scrolled {
+        box-shadow: 0 10px 30px rgba(2, 6, 23, 0.18);
+      }
+
+      /* Hamburger button */
+      .xymz-mobile-menu-btn {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        border: 1px solid rgba(148,163,184,0.35);
+        background: rgba(255,255,255,0.65);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        cursor: pointer;
+      }
+
+      [data-theme="dark"] .xymz-mobile-menu-btn {
+        background: rgba(2,6,23,0.55);
+        border-color: rgba(148,163,184,0.25);
+      }
+
+      .xymz-mobile-menu-btn svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      .xymz-mobile-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(2,6,23,0.5);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+        z-index: 60;
+      }
+
+      body.xymz-mobile-open .xymz-mobile-overlay {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      /* Mobile drawer */
+      .xymz-mobile-drawer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: min(88vw, 360px);
+        transform: translateX(-102%);
+        transition: transform 220ms ease;
+        z-index: 70;
+        padding: 14px;
+        overflow: auto;
+        background: rgba(255,255,255,0.92);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-right: 1px solid rgba(148,163,184,0.35);
+      }
+
+      [data-theme="dark"] .xymz-mobile-drawer {
+        background: rgba(2,6,23,0.86);
+        border-right-color: rgba(148,163,184,0.22);
+      }
+
+      body.xymz-mobile-open .xymz-mobile-drawer {
+        transform: translateX(0%);
+      }
+
+      .xymz-drawer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 6px 14px;
+      }
+
+      .xymz-drawer-title {
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+
+      .xymz-drawer-close {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        border: 1px solid rgba(148,163,184,0.35);
+        background: rgba(255,255,255,0.65);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        cursor: pointer;
+      }
+
+      [data-theme="dark"] .xymz-drawer-close {
+        background: rgba(2,6,23,0.55);
+        border-color: rgba(148,163,184,0.25);
+      }
+
+      /* Responsive rules */
+      @media (max-width: 820px) {
+        /* Sticky topbar on mobile */
+        .xymz-topbar {
+          position: fixed !important;
+          top: 0;
+          left: 0;
+          right: 0;
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+        }
+
+        /* If your topbar has a background, keep it readable */
+        .xymz-topbar {
+          background: rgba(248,250,252,0.85);
+          border-bottom: 1px solid rgba(148,163,184,0.25);
+        }
+        [data-theme="dark"] .xymz-topbar {
+          background: rgba(2,6,23,0.72);
+          border-bottom-color: rgba(148,163,184,0.18);
+        }
+
+        /* Hamburger button shows on mobile */
+        .xymz-mobile-menu-btn {
+          display: inline-flex;
+        }
+
+        /* Make tabs scrollable & comfortable on phone */
+        .suite-tab {
+          padding: 10px 14px !important;
+          border-radius: 999px !important;
+        }
+
+        /* Reduce subtitle clutter on small screens */
+        #brand-subtitle {
+          display: none;
+        }
+
+        /* Make task cards easier to tap */
+        .task-card {
+          border-radius: 14px;
+        }
+      }
+    `.trim();
+
+    document.head.appendChild(style);
+  }
+
+  function setTopbarHeightVar(topbarEl) {
+    if (!topbarEl) return;
+    const h = Math.max(48, Math.round(topbarEl.getBoundingClientRect().height || 64));
+    document.documentElement.style.setProperty('--xymz-topbar-h', `${h}px`);
+  }
+
+  function buildHamburgerSvg() {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="currentColor" d="M4 6h16v2H4zM4 11h16v2H4zM4 16h16v2H4z"></path>
+      </svg>
+    `.trim();
+  }
+
+  function buildCloseSvg() {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="currentColor" d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z"></path>
+      </svg>
+    `.trim();
+  }
+
+  function initMobileUiEnhancements() {
+    injectMobileStyles();
+
+    const topbar = findTopbarEl();
+    if (topbar) topbar.classList.add('xymz-topbar');
+
+    // Overlay for drawer
+    let overlay = document.querySelector('.xymz-mobile-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'xymz-mobile-overlay';
+      overlay.addEventListener('click', () => closeMobileDrawer());
+      document.body.appendChild(overlay);
+    }
+
+    // Drawer: we’ll MOVE the sidebar into it on mobile (so events stay attached)
+    let drawer = document.querySelector('.xymz-mobile-drawer');
+    if (!drawer) {
+      drawer = document.createElement('div');
+      drawer.className = 'xymz-mobile-drawer';
+      drawer.setAttribute('role', 'dialog');
+      drawer.setAttribute('aria-modal', 'true');
+      drawer.setAttribute('aria-label', 'Menu');
+
+      const header = document.createElement('div');
+      header.className = 'xymz-drawer-header';
+
+      const title = document.createElement('div');
+      title.className = 'xymz-drawer-title';
+      title.textContent = 'Menu';
+
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'xymz-drawer-close';
+      closeBtn.setAttribute('aria-label', 'Close menu');
+      closeBtn.innerHTML = buildCloseSvg();
+      closeBtn.addEventListener('click', () => closeMobileDrawer());
+
+      header.appendChild(title);
+      header.appendChild(closeBtn);
+      drawer.appendChild(header);
+
+      document.body.appendChild(drawer);
+    }
+
+    // Hamburger button in topbar
+    if (topbar && !topbar.querySelector('.xymz-mobile-menu-btn')) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'xymz-mobile-menu-btn';
+      btn.setAttribute('aria-label', 'Open menu');
+      btn.setAttribute('aria-expanded', 'false');
+      btn.innerHTML = buildHamburgerSvg();
+      btn.addEventListener('click', () => toggleMobileDrawer());
+
+      // Put hamburger at the start of the topbar
+      topbar.insertBefore(btn, topbar.firstChild);
+    }
+
+    // Move sidebar into drawer ONLY on mobile widths
+    const sidebar = findSidebarEl();
+
+    const maybeDockSidebar = () => {
+      const isMobile = window.matchMedia('(max-width: 820px)').matches;
+
+      if (isMobile && topbar) {
+        document.body.classList.add('xymz-has-sticky-topbar');
+        setTopbarHeightVar(topbar);
+      } else {
+        document.body.classList.remove('xymz-has-sticky-topbar');
+        closeMobileDrawer(true);
+      }
+
+      if (!sidebar) return;
+
+      // Store original parent so we can put it back on desktop
+      if (!sidebar.__xymzHome) {
+        sidebar.__xymzHome = { parent: sidebar.parentElement, next: sidebar.nextSibling };
+      }
+
+      if (isMobile) {
+        // Put it in drawer (after drawer header)
+        if (sidebar.parentElement !== drawer) {
+          drawer.appendChild(sidebar);
+        }
+      } else {
+        // Restore to original position
+        if (sidebar.__xymzHome.parent && sidebar.parentElement !== sidebar.__xymzHome.parent) {
+          sidebar.__xymzHome.parent.insertBefore(sidebar, sidebar.__xymzHome.next || null);
+        }
+      }
+    };
+
+    // Scroll shadow
+    const onScroll = () => {
+      if (!topbar) return;
+      topbar.classList.toggle('xymz-topbar-scrolled', window.scrollY > 4);
+    };
+
+    // Drawer controls
+    function openMobileDrawer() {
+      document.body.classList.add('xymz-mobile-open');
+      const btn = topbar && topbar.querySelector('.xymz-mobile-menu-btn');
+      btn && btn.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeMobileDrawer(force = false) {
+      document.body.classList.remove('xymz-mobile-open');
+      const btn = topbar && topbar.querySelector('.xymz-mobile-menu-btn');
+      btn && btn.setAttribute('aria-expanded', 'false');
+
+      // If force-close, also ensure overlay isn't trapping taps
+      if (force && overlay) overlay.style.pointerEvents = 'none';
+      if (force && overlay) setTimeout(() => (overlay.style.pointerEvents = ''), 0);
+    }
+
+    function toggleMobileDrawer() {
+      const open = document.body.classList.contains('xymz-mobile-open');
+      if (open) closeMobileDrawer();
+      else openMobileDrawer();
+    }
+
+    // expose inside this scope (used above)
+    window.__xymzOpenDrawer = openMobileDrawer;
+    window.__xymzCloseDrawer = closeMobileDrawer;
+    window.__xymzToggleDrawer = toggleMobileDrawer;
+
+    // ESC closes drawer
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMobileDrawer();
+    });
+
+    // Recompute on resize/orientation change
+    window.addEventListener('resize', () => {
+      setTopbarHeightVar(topbar);
+      maybeDockSidebar();
+    });
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // First run
+    maybeDockSidebar();
+    onScroll();
+
+    // Helpers used by overlay/button
+    function closeMobileDrawerPublic() { closeMobileDrawer(); }
+    function toggleMobileDrawerPublic() { toggleMobileDrawer(); }
+
+    // attach to outer function names used earlier
+    // (so overlay click works even if created before)
+    window.closeMobileDrawer = closeMobileDrawerPublic;
+    window.toggleMobileDrawer = toggleMobileDrawerPublic;
+  }
+
+  // small wrappers used above (avoid reference errors if initMobileUiEnhancements not run yet)
+  function closeMobileDrawer(force = false) {
+    if (window.__xymzCloseDrawer) return window.__xymzCloseDrawer(force);
+  }
+  function toggleMobileDrawer() {
+    if (window.__xymzToggleDrawer) return window.__xymzToggleDrawer();
+  }
+
+
+  /* =========================
      INIT
   ========================== */
   function init() {
@@ -2347,8 +2747,13 @@
     wireMainUi();
     wireGlobalDnDSafety();
     initTouchDnD();
+
+    // ✅ NEW: mobile sticky topbar + drawer menu
+    initMobileUiEnhancements();
+
     loadSession();
   }
+
 
   window.addEventListener('DOMContentLoaded', init);
 })();
