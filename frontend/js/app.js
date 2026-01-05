@@ -268,9 +268,11 @@
     const charts = [S.biChart, S.biTaskChart].filter(Boolean);
 
     charts.forEach((ch) => {
+      // Legend + titles
       if (ch.options?.plugins?.legend?.labels) ch.options.plugins.legend.labels.color = text;
       if (ch.options?.plugins?.title) ch.options.plugins.title.color = text;
 
+      // Axes text + grid
       Object.values(ch.options.scales || {}).forEach((s) => {
         if (s.ticks) s.ticks.color = muted;
         if (s.title) s.title.color = text;
@@ -280,7 +282,9 @@
       try {
         ch.update('none');
       } catch {
-        try { ch.update(); } catch {}
+        try {
+          ch.update();
+        } catch {}
       }
     });
   }
@@ -295,6 +299,7 @@
     // ✅ FIX: light-mode fallback is dark text, not white
     const text = (styles.getPropertyValue('--text') || '').trim() || (theme === 'light' ? '#0b1220' : '#e5e7eb');
 
+    // prefer border2, then border, then theme fallback
     const border2 =
       (styles.getPropertyValue('--border2') || '').trim() ||
       (styles.getPropertyValue('--border') || '').trim() ||
@@ -303,10 +308,12 @@
     try {
       window.Chart.defaults.color = text;
       window.Chart.defaults.borderColor = border2;
+
+      // Some Chart.js builds support this; safe-guarded
       if (window.Chart.defaults?.scale?.grid) window.Chart.defaults.scale.grid.color = border2;
     } catch {}
 
-    // ✅ apply per-chart options too
+    // ✅ NEW: also apply per-chart option colors (ticks/legend) so existing charts update correctly
     applyChartTheme();
 
     try {
@@ -321,15 +328,11 @@
     if (persist) storage.setStr(KEYS.theme, t);
     updateThemeMetaColor(t);
     updateThemeButton(t);
-    syncChartsToTheme();
+    syncChartsToTheme(); // ✅ includes applyChartTheme now
   }
 
   function initTheme() {
-    const initial = normalizeTheme(
-      storage.getStr(KEYS.theme) ||
-      document.documentElement.getAttribute('data-theme') ||
-      'dark'
-    );
+    const initial = normalizeTheme(storage.getStr(KEYS.theme) || document.documentElement.getAttribute('data-theme') || 'dark');
     applyTheme(initial, false);
 
     if (els.btnTheme) {
@@ -378,9 +381,6 @@
   function setActiveView(view) {
     S.currentView = view;
     storage.setStr(KEYS.lastView, view);
-
-    // nice on mobile: close drawer when switching views
-    closeMobileDrawer();
 
     els.suiteTabs.forEach((btn) => btn.classList.toggle('active', btn.dataset.view === view));
 
@@ -459,9 +459,7 @@
   function buildBiReportPacket() {
     const drillVisible = els.biTaskChartArea && !els.biTaskChartArea.classList.contains('hidden') && S.biTaskChart;
     const generatedAt = new Date().toLocaleString();
-    const orgName =
-      (S.orgs.find((o) => o.id === S.currentOrgId)?.name) ||
-      (S.currentOrgId ? `Org #${S.currentOrgId}` : 'No Organization');
+    const orgName = (S.orgs.find((o) => o.id === S.currentOrgId)?.name) || (S.currentOrgId ? `Org #${S.currentOrgId}` : 'No Organization');
 
     if (!drillVisible) {
       const summary = Array.isArray(S.lastBiSummary) ? S.lastBiSummary : [];
@@ -487,13 +485,7 @@
       lines.push(`In review: ${rev} (${reviewShare}%)`);
       lines.push(`Done: ${done} (${doneShare}%)`);
       if (total) {
-        lines.push(
-          `Delivery health: ${
-            doneShare >= 70 ? 'Strong completion pace'
-            : doneShare >= 40 ? 'Moderate progress, monitor flow'
-            : 'At risk, execution needs attention'
-          }`
-        );
+        lines.push(`Delivery health: ${doneShare >= 70 ? 'Strong completion pace' : doneShare >= 40 ? 'Moderate progress, monitor flow' : 'At risk, execution needs attention'}`);
         if (reviewShare >= 35) lines.push('Signal: Review backlog (QA/approvals may be bottleneck)');
         const active = inP + rev;
         if (active > done && done > 0) lines.push('Signal: WIP higher than throughput (risk of piling work)');
@@ -556,6 +548,7 @@
     });
 
     if (tasks.length > 40) lines.push('(Showing first 40 tasks - export limited for readability)');
+
     return { title, subtitle: `Organization: ${orgName}`, generatedAt, lines };
   }
 
@@ -737,7 +730,7 @@
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: /* no auth header */ JSON.stringify({
           email: (els.loginEmail?.value || '').trim(),
           password: els.loginPassword?.value || ''
         })
@@ -801,10 +794,9 @@
       }
 
       setAuthStatus('');
-      alert(
-        'Your participant account was created successfully.\n\nPlease log in using the 6-digit organization token that was shared with you by your workspace admin.'
-      );
+      alert('Your participant account was created successfully.\n\nPlease log in using the 6-digit organization token that was shared with you by your workspace admin.');
 
+      // flip to login
       els.tabLogin?.classList.add('active');
       els.tabRegister?.classList.remove('active');
       els.loginForm?.classList.remove('hidden');
@@ -837,9 +829,6 @@
     S.biTaskChart = null;
 
     setBiDownloadButtonsEnabled(false);
-
-    // close mobile drawer + sticky padding if present
-    document.body && document.body.classList.remove('xymz-mobile-open', 'xymz-has-sticky-topbar');
 
     show(els.authPanel, true);
     show(els.appPanel, false);
@@ -949,8 +938,10 @@
       els.logoutBtn && els.logoutBtn.classList.remove('hidden');
       els.orgSwitcher && els.orgSwitcher.classList.remove('hidden');
 
+      // view
       const initialView = storage.getStr(KEYS.lastView) || 'suite';
 
+      // org
       const storedOrgId = storage.getNum(KEYS.lastOrg);
       if (storedOrgId && S.orgs.some((o) => o.id === storedOrgId)) setCurrentOrgId(storedOrgId);
       else if (!S.currentOrgId && S.orgs.length) setCurrentOrgId(S.orgs[0].id);
@@ -1038,6 +1029,7 @@
         body: JSON.stringify({ token: trimmed })
       });
 
+      // prefer joined org
       storage.setStr(KEYS.lastOrg, String(data.organization.id));
       await loadSession();
       alert(`Joined organization: ${data.organization.name}`);
@@ -1071,6 +1063,7 @@
 
       await refreshProjectCompletion(orgId);
 
+      // pick project
       if (!S.currentProjectId) {
         const stored = storage.getNum(KEYS.lastProject);
         if (stored && S.projects.some((p) => p.id === stored)) setCurrentProjectId(stored);
@@ -1140,7 +1133,6 @@
         if (li.classList.contains('dragging') || li.classList.contains('dragging-project')) return;
         setCurrentProjectId(p.id);
         renderProjectList();
-        closeMobileDrawer(); // nice on mobile after selecting
         await loadBoard(S.currentProjectId);
       });
 
@@ -1195,7 +1187,7 @@
   }
 
   /* =========================
-     BI DASHBOARD
+     BI DASHBOARD (WORKING)
   ========================== */
   function ensureCanvasHasHeight(canvas, fallbackPx = 360) {
     if (!canvas) return;
@@ -1235,6 +1227,7 @@
         return;
       }
 
+      // refresh completion + project list checkmarks
       S.projectCompletion = {};
       summary.forEach((p) => {
         const total = (p.in_progress || 0) + (p.review || 0) + (p.complete || 0);
@@ -1290,6 +1283,7 @@
         }
       });
 
+      // ✅ updated sync will make text black in light mode
       syncChartsToTheme();
 
       setText(els.biMeta, 'Click a project bar to see its tasks.');
@@ -1345,7 +1339,9 @@
         }
       });
 
+      // ✅ updated sync will make text black in light mode
       syncChartsToTheme();
+
       setBiDownloadButtonsEnabled(true);
     } catch (err) {
       setText(els.biMeta, `Error: ${err.message}`);
@@ -1468,6 +1464,7 @@
         return;
       }
 
+      // overdue tasks across projects
       const overdueItems = [];
       await Promise.all(
         summary.map(async (p) => {
@@ -1494,6 +1491,7 @@
           const li = document.createElement('li');
           li.textContent = `${item.taskTitle} (${item.projectName}) - overdue by ${Math.abs(item.daysLeft)} day(s)`;
           li.classList.add('radar-clickable');
+          li.style.cursor = 'pointer';
           li.addEventListener('click', () => handleRadarClick(item.projectId, item.taskId));
           els.radarOverdueList.appendChild(li);
         });
@@ -1503,6 +1501,7 @@
         els.radarOverdueList.appendChild(li);
       }
 
+      // at-risk projects
       const atRisk = [...summary].sort((a, b) => {
         const activeA = (a.in_progress || 0) + (a.review || 0);
         const activeB = (b.in_progress || 0) + (b.review || 0);
@@ -1512,21 +1511,17 @@
 
       atRisk.slice(0, 5).forEach((p) => {
         const totalActive = (p.in_progress || 0) + (p.review || 0);
-        const dl =
-          p.days_left != null
-            ? (p.days_left === 0 ? 'due today' : `soonest due in ${p.days_left} day(s)`)
-            : 'no upcoming deadlines recorded';
+        const dl = p.days_left != null ? (p.days_left === 0 ? 'due today' : `soonest due in ${p.days_left} day(s)`) : 'no upcoming deadlines recorded';
         const li = document.createElement('li');
         li.textContent = `${p.project_name}: ${totalActive} active task(s), ${dl}`;
         li.classList.add('radar-clickable');
+        li.style.cursor = 'pointer';
         li.addEventListener('click', () => handleRadarClick(p.project_id, null));
         els.radarProjectsList.appendChild(li);
       });
 
-      const withDeadline = summary
-        .filter((p) => typeof p.days_left === 'number')
-        .sort((a, b) => (a.days_left ?? 9999) - (b.days_left ?? 9999));
-
+      // upcoming deadlines
+      const withDeadline = summary.filter((p) => typeof p.days_left === 'number').sort((a, b) => (a.days_left ?? 9999) - (b.days_left ?? 9999));
       if (withDeadline.length) {
         withDeadline.slice(0, 5).forEach((p) => {
           const li = document.createElement('li');
@@ -1535,6 +1530,7 @@
             : p.days_left > 0 ? `${p.project_name}: due in ${p.days_left} day(s)`
             : `${p.project_name}: timeline not set`;
           li.classList.add('radar-clickable');
+          li.style.cursor = 'pointer';
           li.addEventListener('click', () => handleRadarClick(p.project_id, null));
           els.radarUpcomingList.appendChild(li);
         });
@@ -1581,6 +1577,7 @@
       setText(els.boardProjectNameEl, data.project.name);
       setText(els.boardProjectDescEl, data.project.description || '');
 
+      // update completion for ✓
       const doneColumnIds = S.board.columns.filter((c) => /done|complete/i.test(c.name || '')).map((c) => c.id);
       const total = S.board.tasks.length;
       const complete = S.board.tasks.filter((t) => doneColumnIds.includes(t.column_id)).length;
@@ -1635,7 +1632,7 @@
       body.classList.add('column-body');
       body.dataset.columnId = col.id;
 
-      // ✅ allow dropping onto whole column (including header)
+      // ✅ MOD: allow dropping onto whole column (including header)
       const allowDrop = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1708,6 +1705,7 @@
     e.stopPropagation();
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = 'move';
+      // ✅ MOD: needed for Firefox/Safari
       e.dataTransfer.setData('text/plain', String(e.currentTarget?.dataset?.taskId || ''));
     }
     const card = e.currentTarget;
@@ -1838,6 +1836,7 @@
       const touch = e.changedTouches[0];
       const el = document.elementFromPoint(touch.clientX, touch.clientY);
 
+      // ✅ MOD: allow dropping onto column OR column-body
       const col = el && el.closest('.column, .column-body, .column-header');
       const toColumnId = col ? Number(col.dataset.columnId || col.closest('.column')?.dataset?.columnId) : startColId;
 
@@ -2082,6 +2081,7 @@
     }
 
     setText(els.detailStatus, '');
+
     loadComments(taskId);
     loadAttachments(taskId);
   }
@@ -2162,10 +2162,10 @@
      WIRES
   ========================== */
   function wireMainUi() {
-    els.suiteTabs.forEach((btn) =>
-      btn.addEventListener('click', () => setActiveView(btn.dataset.view))
-    );
+    // suite tabs
+    els.suiteTabs.forEach((btn) => btn.addEventListener('click', () => setActiveView(btn.dataset.view)));
 
+    // org switcher
     if (els.orgSelect) {
       els.orgSelect.onchange = async () => {
         setCurrentOrgId(Number(els.orgSelect.value));
@@ -2281,7 +2281,7 @@
 
           const res = await fetch(`${API_BASE_URL}/api/tasks/${S.selectedTaskId}/attachments`, {
             method: 'POST',
-            headers: { ...auth.headers() },
+            headers: { ...auth.headers() }, // don't set content-type
             body: formData
           });
           const data = await safeJson(res);
@@ -2300,6 +2300,7 @@
 
     if (els.logoutBtn) els.logoutBtn.onclick = handleLogout;
 
+    // BI export buttons
     if (els.btnBiDownloadPdf) {
       els.btnBiDownloadPdf.addEventListener('click', () => {
         try { downloadActiveBiAsPdf(); } catch (e) { alert(`PDF export failed: ${e.message}`); }
@@ -2312,12 +2313,14 @@
     }
     setBiDownloadButtonsEnabled(false);
 
+    // login/register
     if (els.loginForm) els.loginForm.onsubmit = handleLogin;
     if (els.registerForm) els.registerForm.onsubmit = handleRegister;
   }
 
   /* =========================
      GLOBAL DRAG/DROP SAFETY
+     ✅ MOD: include .column + header
   ========================== */
   function wireGlobalDnDSafety() {
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((eventName) => {
@@ -2335,8 +2338,11 @@
 
   /* =========================
      MOBILE UI ENHANCEMENTS (STICKY TOPBAR + DRAWER)
+     ✅ Fixes: topbar scrolling away on mobile
+     ✅ Adds: hamburger menu + overlay + nice mobile spacing
   ========================== */
   function findTopbarEl() {
+    // Try common ids/classes first
     const direct =
       document.getElementById('topbar') ||
       document.getElementById('app-topbar') ||
@@ -2347,6 +2353,7 @@
 
     if (direct) return direct;
 
+    // Fallback: walk up from brand title
     if (els.brandTitle && els.brandTitle.closest) {
       return (
         els.brandTitle.closest('header') ||
@@ -2359,15 +2366,189 @@
   }
 
   function findSidebarEl() {
+    // Prefer a real sidebar container if your HTML has one
     return (
       document.getElementById('sidebar') ||
       document.getElementById('left-panel') ||
       document.querySelector('.sidebar') ||
       document.querySelector('aside') ||
+      // Fallback: use the common ancestor of org switcher + project list
       (els.orgSwitcher && els.orgSwitcher.closest && els.orgSwitcher.closest('aside, .sidebar, #sidebar, #left-panel')) ||
       (els.projectListEl && els.projectListEl.closest && els.projectListEl.closest('aside, .sidebar, #sidebar, #left-panel')) ||
       null
     );
+  }
+
+  function injectMobileStyles() {
+    if (document.getElementById('xymz-mobile-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'xymz-mobile-style';
+    style.textContent = `
+      /* ===== Mobile polish + sticky topbar ===== */
+      :root { --xymz-topbar-h: 64px; }
+
+      /* Make taps feel better on phones */
+      button, .suite-tab, .radar-clickable, .task-card { -webkit-tap-highlight-color: transparent; }
+
+      /* Sticky topbar wrapper */
+      .xymz-topbar {
+        position: relative;
+        z-index: 50;
+      }
+
+      /* When we "lock" the topbar (mobile), keep content from hiding behind it */
+      body.xymz-has-sticky-topbar {
+        padding-top: var(--xymz-topbar-h);
+      }
+
+      /* Subtle shadow when you scroll */
+      .xymz-topbar.xymz-topbar-scrolled {
+        box-shadow: 0 10px 30px rgba(2, 6, 23, 0.18);
+      }
+
+      /* Hamburger button */
+      .xymz-mobile-menu-btn {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        border: 1px solid rgba(148,163,184,0.35);
+        background: rgba(255,255,255,0.65);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        cursor: pointer;
+      }
+
+      [data-theme="dark"] .xymz-mobile-menu-btn {
+        background: rgba(2,6,23,0.55);
+        border-color: rgba(148,163,184,0.25);
+      }
+
+      .xymz-mobile-menu-btn svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      .xymz-mobile-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(2,6,23,0.5);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+        z-index: 60;
+      }
+
+      body.xymz-mobile-open .xymz-mobile-overlay {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      /* Mobile drawer */
+      .xymz-mobile-drawer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: min(88vw, 360px);
+        transform: translateX(-102%);
+        transition: transform 220ms ease;
+        z-index: 70;
+        padding: 14px;
+        overflow: auto;
+        background: rgba(255,255,255,0.92);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-right: 1px solid rgba(148,163,184,0.35);
+      }
+
+      [data-theme="dark"] .xymz-mobile-drawer {
+        background: rgba(2,6,23,0.86);
+        border-right-color: rgba(148,163,184,0.22);
+      }
+
+      body.xymz-mobile-open .xymz-mobile-drawer {
+        transform: translateX(0%);
+      }
+
+      .xymz-drawer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 6px 14px;
+      }
+
+      .xymz-drawer-title {
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+
+      .xymz-drawer-close {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        border: 1px solid rgba(148,163,184,0.35);
+        background: rgba(255,255,255,0.65);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        cursor: pointer;
+      }
+
+      [data-theme="dark"] .xymz-drawer-close {
+        background: rgba(2,6,23,0.55);
+        border-color: rgba(148,163,184,0.25);
+      }
+
+      /* Responsive rules */
+      @media (max-width: 820px) {
+        /* Sticky topbar on mobile */
+        .xymz-topbar {
+          position: fixed !important;
+          top: 0;
+          left: 0;
+          right: 0;
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+        }
+
+        /* If your topbar has a background, keep it readable */
+        .xymz-topbar {
+          background: rgba(248,250,252,0.85);
+          border-bottom: 1px solid rgba(148,163,184,0.25);
+        }
+        [data-theme="dark"] .xymz-topbar {
+          background: rgba(2,6,23,0.72);
+          border-bottom-color: rgba(148,163,184,0.18);
+        }
+
+        /* Hamburger button shows on mobile */
+        .xymz-mobile-menu-btn {
+          display: inline-flex;
+        }
+
+        /* Make tabs scrollable & comfortable on phone */
+        .suite-tab {
+          padding: 10px 14px !important;
+          border-radius: 999px !important;
+        }
+
+        /* Reduce subtitle clutter on small screens */
+        #brand-subtitle {
+          display: none;
+        }
+
+        /* Make task cards easier to tap */
+        .task-card {
+          border-radius: 14px;
+        }
+      }
+    `.trim();
+
+    document.head.appendChild(style);
   }
 
   function setTopbarHeightVar(topbarEl) {
@@ -2393,10 +2574,12 @@
   }
 
   function initMobileUiEnhancements() {
+    injectMobileStyles();
+
     const topbar = findTopbarEl();
     if (topbar) topbar.classList.add('xymz-topbar');
 
-    // Overlay
+    // Overlay for drawer
     let overlay = document.querySelector('.xymz-mobile-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
@@ -2405,7 +2588,7 @@
       document.body.appendChild(overlay);
     }
 
-    // Drawer
+    // Drawer: we’ll MOVE the sidebar into it on mobile (so events stay attached)
     let drawer = document.querySelector('.xymz-mobile-drawer');
     if (!drawer) {
       drawer = document.createElement('div');
@@ -2435,7 +2618,7 @@
       document.body.appendChild(drawer);
     }
 
-    // Hamburger button
+    // Hamburger button in topbar
     if (topbar && !topbar.querySelector('.xymz-mobile-menu-btn')) {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -2444,12 +2627,14 @@
       btn.setAttribute('aria-expanded', 'false');
       btn.innerHTML = buildHamburgerSvg();
       btn.addEventListener('click', () => toggleMobileDrawer());
+
+      // Put hamburger at the start of the topbar
       topbar.insertBefore(btn, topbar.firstChild);
     }
 
+    // Move sidebar into drawer ONLY on mobile widths
     const sidebar = findSidebarEl();
 
-    // Dock/undock sidebar
     const maybeDockSidebar = () => {
       const isMobile = window.matchMedia('(max-width: 820px)').matches;
 
@@ -2463,13 +2648,18 @@
 
       if (!sidebar) return;
 
+      // Store original parent so we can put it back on desktop
       if (!sidebar.__xymzHome) {
         sidebar.__xymzHome = { parent: sidebar.parentElement, next: sidebar.nextSibling };
       }
 
       if (isMobile) {
-        if (sidebar.parentElement !== drawer) drawer.appendChild(sidebar);
+        // Put it in drawer (after drawer header)
+        if (sidebar.parentElement !== drawer) {
+          drawer.appendChild(sidebar);
+        }
       } else {
+        // Restore to original position
         if (sidebar.__xymzHome.parent && sidebar.parentElement !== sidebar.__xymzHome.parent) {
           sidebar.__xymzHome.parent.insertBefore(sidebar, sidebar.__xymzHome.next || null);
         }
@@ -2482,35 +2672,40 @@
       topbar.classList.toggle('xymz-topbar-scrolled', window.scrollY > 4);
     };
 
+    // Drawer controls
     function openMobileDrawer() {
       document.body.classList.add('xymz-mobile-open');
       const btn = topbar && topbar.querySelector('.xymz-mobile-menu-btn');
       btn && btn.setAttribute('aria-expanded', 'true');
     }
 
-    function closeMobileDrawerInternal(force = false) {
+    function closeMobileDrawer(force = false) {
       document.body.classList.remove('xymz-mobile-open');
       const btn = topbar && topbar.querySelector('.xymz-mobile-menu-btn');
       btn && btn.setAttribute('aria-expanded', 'false');
 
+      // If force-close, also ensure overlay isn't trapping taps
       if (force && overlay) overlay.style.pointerEvents = 'none';
       if (force && overlay) setTimeout(() => (overlay.style.pointerEvents = ''), 0);
     }
 
-    function toggleMobileDrawerInternal() {
+    function toggleMobileDrawer() {
       const open = document.body.classList.contains('xymz-mobile-open');
-      if (open) closeMobileDrawerInternal();
+      if (open) closeMobileDrawer();
       else openMobileDrawer();
     }
 
+    // expose inside this scope (used above)
     window.__xymzOpenDrawer = openMobileDrawer;
-    window.__xymzCloseDrawer = closeMobileDrawerInternal;
-    window.__xymzToggleDrawer = toggleMobileDrawerInternal;
+    window.__xymzCloseDrawer = closeMobileDrawer;
+    window.__xymzToggleDrawer = toggleMobileDrawer;
 
+    // ESC closes drawer
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeMobileDrawerInternal();
+      if (e.key === 'Escape') closeMobileDrawer();
     });
 
+    // Recompute on resize/orientation change
     window.addEventListener('resize', () => {
       setTopbarHeightVar(topbar);
       maybeDockSidebar();
@@ -2518,17 +2713,28 @@
 
     window.addEventListener('scroll', onScroll, { passive: true });
 
+    // First run
     maybeDockSidebar();
     onScroll();
+
+    // Helpers used by overlay/button
+    function closeMobileDrawerPublic() { closeMobileDrawer(); }
+    function toggleMobileDrawerPublic() { toggleMobileDrawer(); }
+
+    // attach to outer function names used earlier
+    // (so overlay click works even if created before)
+    window.closeMobileDrawer = closeMobileDrawerPublic;
+    window.toggleMobileDrawer = toggleMobileDrawerPublic;
   }
 
-  // wrappers
+  // small wrappers used above (avoid reference errors if initMobileUiEnhancements not run yet)
   function closeMobileDrawer(force = false) {
     if (window.__xymzCloseDrawer) return window.__xymzCloseDrawer(force);
   }
   function toggleMobileDrawer() {
     if (window.__xymzToggleDrawer) return window.__xymzToggleDrawer();
   }
+
 
   /* =========================
      INIT
@@ -2542,11 +2748,12 @@
     wireGlobalDnDSafety();
     initTouchDnD();
 
-    // ✅ mobile sticky topbar + drawer menu
+    // ✅ NEW: mobile sticky topbar + drawer menu
     initMobileUiEnhancements();
 
     loadSession();
   }
+
 
   window.addEventListener('DOMContentLoaded', init);
 })();
