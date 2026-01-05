@@ -64,7 +64,6 @@ html {
   text-size-adjust: 100%;
 }
 
-/* Smooth theme transition */
 html,
 body,
 .card,
@@ -84,8 +83,8 @@ body {
   background: var(--bg);
   color: var(--text);
   scroll-behavior: smooth;
-  /* ✅ Minimum font size for mobile readability */
-  font-size: 16px;
+  line-height: 1.5;
+  overflow-x: hidden; /* important: prevents random horizontal scroll on mobile */
 }
 
 h1,
@@ -98,22 +97,17 @@ h6 {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   margin: 0;
-  /* ✅ Better mobile readability with adequate line height */
-  line-height: 1.3;
 }
 
 .muted {
   color: var(--muted);
   font-size: 0.88rem;
-  line-height: 1.6; /* ✅ Improved readability */
+  line-height: 1.5;
 }
 
 .link {
   color: var(--accent);
   text-decoration: none;
-  /* ✅ Larger touch target for links */
-  display: inline-block;
-  padding: 4px 0;
 }
 .link:hover {
   text-decoration: underline;
@@ -127,6 +121,12 @@ h6 {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+
+/* Better focus for accessibility */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* --------------------------------------------------
@@ -143,8 +143,6 @@ h6 {
   position: sticky;
   top: 0;
   z-index: 10;
-  /* ✅ Min height for better touch targets */
-  min-height: 60px;
 }
 
 .brand {
@@ -207,8 +205,6 @@ h6 {
   padding: 7px 12px;
   font-size: 0.85rem;
   outline: none;
-  /* ✅ Better mobile touch target */
-  min-height: 44px;
 }
 
 .user-chip {
@@ -227,26 +223,21 @@ h6 {
 }
 
 /* --------------------------------------------------
-   Buttons - ✅ ENHANCED FOR MOBILE
+   Buttons
    -------------------------------------------------- */
 .btn {
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--card2);
   color: var(--text);
-  padding: 10px 20px; /* ✅ Increased padding for better touch */
-  font-size: 1rem; /* ✅ Larger font for readability */
+  padding: 6px 12px;
+  font-size: 0.85rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   transition: box-shadow 200ms ease, transform 160ms ease, border-color 200ms ease;
-  /* ✅ CRITICAL: Minimum touch target size */
-  min-height: 44px;
-  min-width: 44px;
-  /* ✅ Prevent text from being too small */
-  font-weight: 500;
 }
 
 .btn:hover {
@@ -274,9 +265,8 @@ html[data-theme="light"] .btn.primary {
 }
 
 .btn.small {
-  font-size: 0.9rem;
-  padding: 8px 16px;
-  min-height: 44px; /* ✅ Still maintains touch target */
+  font-size: 0.8rem;
+  padding: 4px 10px;
 }
 
 .btn.full-width {
@@ -302,7 +292,6 @@ html[data-theme="light"] .btn.primary {
   overflow: hidden;
 }
 
-/* inner frame */
 .card::before {
   content: "";
   position: absolute;
@@ -334,12 +323,11 @@ html[data-theme="light"] .btn.primary {
   border: none;
   background: transparent;
   color: var(--muted);
-  padding: 10px 0; /* ✅ Better touch target */
+  padding: 8px 0;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.9rem;
   border-radius: 999px;
   transition: background 200ms ease, color 200ms ease;
-  min-height: 44px; /* ✅ Touch target compliance */
 }
 
 .tab.active {
@@ -350,9 +338,8 @@ html[data-theme="light"] .btn.primary {
 
 .auth-form label {
   display: block;
-  font-size: 1rem; /* ✅ More readable on mobile */
+  font-size: 0.85rem;
   margin-bottom: 8px;
-  font-weight: 500;
 }
 
 .auth-form input,
@@ -364,37 +351,34 @@ html[data-theme="light"] .btn.primary {
   border: 1px solid var(--border);
   background: var(--card2);
   color: var(--text);
-  padding: 10px 12px; /* ✅ Better touch-friendly padding */
-  font-size: 16px; /* ✅ CRITICAL: Prevents iOS zoom on focus */
-  min-height: 44px; /* ✅ Touch target */
+  padding: 6px 8px;
+  font-size: 0.85rem;
 }
 
 .auth-actions-row {
-  margin-top: 12px;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .status-text {
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   color: var(--muted);
   margin-top: 6px;
-  line-height: 1.5;
 }
 
 .checkbox-row {
   display: flex;
   align-items: center;
-  gap: 12px; /* ✅ More space for easier tapping */
-  font-size: 0.9rem;
-  margin: 8px 0;
-  min-height: 44px; /* ✅ Touch target */
+  gap: 8px;
+  font-size: 0.8rem;
+  margin: 6px 0;
 }
 
 .admin-org-fields {
   margin-top: 6px;
-  padding: 12px 14px;
+  padding: 8px 10px;
   border-radius: 10px;
   border: 1px dashed var(--border);
   background: var(--card2);
@@ -420,7 +404,7 @@ html[data-theme="light"] .btn.primary {
 }
 
 .sidebar-section h2 {
-  font-size: 1rem; /* ✅ Better mobile readability */
+  font-size: 0.95rem;
   margin: 0 0 8px;
 }
 
@@ -431,11 +415,11 @@ html[data-theme="light"] .btn.primary {
   margin: 0;
   max-height: 280px;
   overflow-y: auto;
-  font-size: 0.95rem; /* ✅ More readable */
+  font-size: 0.88rem;
 }
 
 .project-list li {
-  padding: 12px 14px; /* ✅ Larger touch target */
+  padding: 9px 10px;
   border-radius: 10px;
   cursor: pointer;
   border: 1px solid transparent;
@@ -444,7 +428,6 @@ html[data-theme="light"] .btn.primary {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 44px; /* ✅ Touch target compliance */
 }
 
 .project-list li:hover {
@@ -467,6 +450,7 @@ html[data-theme="light"] .btn.primary {
 .project-done {
   opacity: 0.95;
 }
+
 .project-done-check {
   color: rgba(34, 197, 94, 0.95);
   font-weight: 900;
@@ -474,9 +458,8 @@ html[data-theme="light"] .btn.primary {
 }
 
 .activity-list li {
-  padding: 12px 14px;
+  padding: 9px 10px;
   border-bottom: 1px solid var(--border2);
-  min-height: 44px;
 }
 
 /* Board area */
@@ -490,9 +473,6 @@ html[data-theme="light"] .btn.primary {
   display: inline-flex;
   gap: 8px;
   padding: 8px;
-  /* ✅ Mobile: Allow horizontal scroll */
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .suite-tab {
@@ -500,14 +480,11 @@ html[data-theme="light"] .btn.primary {
   border: 1px solid var(--border);
   background: var(--card2);
   color: var(--muted);
-  padding: 10px 18px; /* ✅ Better touch target */
-  font-size: 0.85rem;
+  padding: 7px 14px;
+  font-size: 0.78rem;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  min-height: 44px; /* ✅ Touch target */
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .suite-tab.active {
@@ -522,9 +499,8 @@ html[data-theme="light"] .btn.primary {
 }
 
 .suite-home-title {
-  font-size: 1.5rem; /* ✅ More prominent on mobile */
+  font-size: 1.35rem;
   margin-bottom: 8px;
-  line-height: 1.3;
 }
 
 .suite-home-divider {
@@ -543,37 +519,36 @@ html[data-theme="light"] .btn.primary {
   border-radius: 12px;
   border: 1px solid var(--border2);
   background: var(--card2);
-  padding: 14px;
+  padding: 12px 12px;
 }
 
 .suite-home-h {
-  font-size: 1rem;
+  font-size: 0.9rem;
   margin-bottom: 10px;
   color: var(--accent);
 }
 
 .faq-block {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .faq-block h4 {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin: 0 0 6px;
-  line-height: 1.4;
+  margin: 0 0 4px;
 }
 
 /* Social */
 .social-row {
   display: flex;
-  gap: 12px; /* ✅ Better spacing for touch */
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .social-icon {
-  width: 44px; /* ✅ Minimum touch target */
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   border: 1px solid var(--border);
   display: inline-flex;
@@ -586,8 +561,8 @@ html[data-theme="light"] .btn.primary {
 }
 
 .social-icon svg {
-  width: 20px; /* ✅ Slightly larger for visibility */
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 
 .social-icon:hover {
@@ -599,12 +574,15 @@ html[data-theme="light"] .btn.primary {
 .social-instagram {
   border-color: rgba(249, 115, 22, 0.7);
 }
+
 .social-twitter {
   border-color: var(--accent-soft);
 }
+
 .social-linkedin {
   border-color: rgba(59, 130, 246, 0.65);
 }
+
 .social-facebook {
   border-color: rgba(37, 99, 235, 0.65);
 }
@@ -621,15 +599,14 @@ html[data-theme="light"] .btn.primary {
 }
 
 /* --------------------------------------------------
-   Ops board - ✅ ENHANCED FOR MOBILE
+   Ops board
    -------------------------------------------------- */
 .board-header {
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .board-actions {
@@ -639,26 +616,24 @@ html[data-theme="light"] .btn.primary {
 }
 
 .board {
-  padding: 12px;
+  padding: 10px;
   display: grid;
-  grid-auto-columns: minmax(280px, 1fr); /* ✅ Wider columns for better mobile */
+  grid-auto-columns: minmax(240px, 1fr);
   grid-auto-flow: column;
   overflow-x: auto;
-  gap: 12px;
+  gap: 10px;
   scroll-behavior: smooth;
   padding-right: 16px;
-  /* ✅ Better scrollbar styling */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
 }
 
 .board::-webkit-scrollbar {
-  height: 12px;
+  height: 10px;
 }
+
 .board::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.25);
-  border-radius: 6px;
 }
+
 .board::-webkit-scrollbar-track {
   background: transparent;
 }
@@ -667,37 +642,36 @@ html[data-theme="light"] .btn.primary {
   border-radius: 14px;
   border: 1px solid var(--border2);
   background: var(--card2);
-  padding: 12px;
+  padding: 10px;
   min-height: 140px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.10);
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.1);
 }
 
 .column-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-  min-height: 44px;
+  margin-bottom: 8px;
 }
 
 .column-title {
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 }
 
 .column-count {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: var(--muted);
 }
 
 .column-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-height: 60px;
 }
 
@@ -705,10 +679,9 @@ html[data-theme="light"] .btn.primary {
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--card);
-  padding: 14px 16px; /* ✅ Better touch padding */
+  padding: 10px 12px;
   cursor: pointer;
   transition: transform 150ms ease, box-shadow 200ms ease, border-color 180ms ease;
-  min-height: 44px;
 }
 
 .task-card:hover {
@@ -724,11 +697,9 @@ html[data-theme="light"] .btn.primary {
 
 .task-title {
   font-weight: 800;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   letter-spacing: 0.02em;
   text-transform: none;
-  font-size: 1rem; /* ✅ More readable */
-  line-height: 1.4;
 }
 
 .task-meta {
@@ -736,35 +707,38 @@ html[data-theme="light"] .btn.primary {
   gap: 8px;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--muted);
 }
 
 .priority-pill {
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 6px 12px; /* ✅ Better touch target */
-  font-size: 0.75rem;
+  padding: 4px 10px;
+  font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text);
   background: rgba(2, 6, 23, 0.15);
   font-weight: 600;
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
 }
 
 html[data-theme="light"] .priority-pill {
   background: rgba(248, 250, 252, 0.75);
 }
 
-.priority-high { border-color: rgba(239, 68, 68, 0.55); }
-.priority-medium { border-color: rgba(234, 179, 8, 0.55); }
-.priority-low { border-color: rgba(34, 197, 94, 0.55); }
+.priority-high {
+  border-color: rgba(239, 68, 68, 0.55);
+}
+.priority-medium {
+  border-color: rgba(234, 179, 8, 0.55);
+}
+.priority-low {
+  border-color: rgba(34, 197, 94, 0.55);
+}
 
 /* --------------------------------------------------
-   Global App Controls - ✅ MOBILE-OPTIMIZED
+   Global App Controls
    -------------------------------------------------- */
 .app-panel input,
 .app-panel select,
@@ -780,21 +754,17 @@ html[data-theme="light"] .priority-pill {
 .app-panel select,
 .app-panel textarea {
   width: 100%;
-  padding: 12px 14px; /* ✅ Better touch padding */
+  padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--card2);
   color: var(--text);
   outline: none;
-  /* ✅ CRITICAL: Prevents iOS zoom */
-  font-size: 16px;
-  min-height: 44px;
 }
 
 .app-panel textarea {
   resize: vertical;
-  min-height: 100px;
-  line-height: 1.6;
+  min-height: 84px;
 }
 
 .app-panel input::placeholder,
@@ -818,12 +788,13 @@ html[data-theme="light"] .app-panel textarea:focus {
 .app-panel input[type="date"] {
   color-scheme: dark;
 }
+
 html[data-theme="light"] .app-panel input[type="date"] {
   color-scheme: light;
 }
 
 /* --------------------------------------------------
-   Task Detail Panel - ✅ MOBILE BOTTOM SHEET
+   Task Detail Panel
    -------------------------------------------------- */
 .task-detail {
   position: fixed;
@@ -841,14 +812,13 @@ html[data-theme="light"] .app-panel input[type="date"] {
 }
 
 .task-detail h3 {
-  font-size: 1.2rem;
-  margin-bottom: 8px;
-  line-height: 1.3;
+  font-size: 1.05rem;
+  margin-bottom: 6px;
 }
 
 .task-detail h4 {
   margin-top: 12px;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   letter-spacing: 0.14em;
   opacity: 0.95;
 }
@@ -858,8 +828,8 @@ html[data-theme="light"] .app-panel input[type="date"] {
   top: 0;
   float: right;
   border-radius: 999px;
-  width: 44px; /* ✅ Touch target */
-  height: 44px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   line-height: 1;
   z-index: 2;
@@ -867,17 +837,16 @@ html[data-theme="light"] .app-panel input[type="date"] {
 
 #detail-form {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   margin-top: 8px;
 }
 
 #detail-form label {
   display: grid;
   gap: 6px;
-  font-size: 1rem;
+  font-size: 0.88rem;
 }
 
-/* Comments + attachments */
 .comments-list,
 .attachments-list {
   list-style: none;
@@ -892,8 +861,7 @@ html[data-theme="light"] .app-panel input[type="date"] {
   border: 1px solid var(--border);
   background: var(--card2);
   border-radius: 14px;
-  padding: 12px 14px;
-  min-height: 44px;
+  padding: 10px 12px;
 }
 
 .attachment-item {
@@ -907,8 +875,8 @@ html[data-theme="light"] .app-panel input[type="date"] {
   color: inherit;
   text-decoration: none;
   font-weight: 700;
-  padding: 4px 0;
 }
+
 .attachment-item a:hover {
   text-decoration: underline;
 }
@@ -921,15 +889,14 @@ html[data-theme="light"] .app-panel input[type="date"] {
 
 .attachment-delete-btn {
   border-radius: 999px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   background: transparent;
   color: inherit;
   cursor: pointer;
   transition: border-color 160ms ease, transform 120ms ease;
-  min-height: 44px;
-  min-width: 44px;
 }
+
 .attachment-delete-btn:hover {
   border-color: rgba(239, 68, 68, 0.7);
   transform: translateY(-1px);
@@ -939,13 +906,13 @@ html[data-theme="light"] .app-panel input[type="date"] {
 .attachment-form {
   display: flex;
   gap: 10px;
-  align-items: flex-end;
+  align-items: center;
   margin-top: 10px;
 }
 
 .comment-form textarea {
   flex: 1;
-  min-height: 60px;
+  min-height: 52px;
 }
 
 .attachment-input {
@@ -964,8 +931,7 @@ html[data-theme="light"] .app-panel input[type="date"] {
   justify-content: space-between;
   align-items: flex-start;
   gap: 10px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
 .bi-toolbar {
@@ -1002,7 +968,7 @@ html[data-theme="light"] .app-panel input[type="date"] {
 }
 
 .fleet-section-title {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
 }
 
 .fleet-metrics-grid {
@@ -1016,7 +982,7 @@ html[data-theme="light"] .app-panel input[type="date"] {
   border: 1px solid var(--border);
   border-radius: 16px;
   background: rgba(2, 6, 23, 0.25);
-  padding: 14px;
+  padding: 12px;
 }
 
 html[data-theme="light"] .fleet-metric-card {
@@ -1041,8 +1007,7 @@ html[data-theme="light"] .fleet-metric-card {
   border: 1px solid var(--border);
   background: rgba(2, 6, 23, 0.25);
   border-radius: 16px;
-  padding: 14px;
-  min-height: 44px;
+  padding: 12px;
 }
 
 html[data-theme="light"] .fleet-list li {
@@ -1052,13 +1017,11 @@ html[data-theme="light"] .fleet-list li {
 .fleet-name {
   font-weight: 800;
   margin-bottom: 4px;
-  font-size: 1rem;
 }
 
 .fleet-meta {
   color: var(--muted);
-  font-size: 0.95rem;
-  line-height: 1.5;
+  font-size: 0.9rem;
 }
 
 .fleet-bottom-panel {
@@ -1072,7 +1035,7 @@ html[data-theme="light"] .fleet-list li {
 }
 
 /* --------------------------------------------------
-   Radar (enhanced design)
+   Radar
    -------------------------------------------------- */
 .radar-view {
   padding: 18px 18px;
@@ -1084,9 +1047,8 @@ html[data-theme="light"] .fleet-list li {
   content: "";
   position: absolute;
   inset: -40px;
-  background:
-    radial-gradient(circle at 12% 18%, var(--accent-soft), transparent 58%),
-    radial-gradient(circle at 88% 12%, rgba(148, 163, 184, 0.10), transparent 60%);
+  background: radial-gradient(circle at 12% 18%, var(--accent-soft), transparent 58%),
+    radial-gradient(circle at 88% 12%, rgba(148, 163, 184, 0.1), transparent 60%);
   pointer-events: none;
   opacity: 0.55;
 }
@@ -1097,9 +1059,8 @@ html[data-theme="light"] .fleet-list li {
 }
 
 .radar-header h2 {
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   margin-bottom: 8px;
-  line-height: 1.3;
 }
 
 .radar-grid {
@@ -1131,11 +1092,10 @@ html[data-theme="light"] .fleet-list li {
 }
 
 .radar-card h3 {
-  font-size: 1.05rem;
+  font-size: 0.98rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin: 0 0 8px;
-  line-height: 1.3;
 }
 
 .radar-card .status-text {
@@ -1156,8 +1116,7 @@ html[data-theme="light"] .fleet-list li {
   border: 1px solid var(--border);
   background: rgba(2, 6, 23, 0.22);
   padding: 14px 14px 14px 18px;
-  line-height: 1.5;
-  min-height: 44px;
+  line-height: 1.35;
 }
 
 html[data-theme="light"] .radar-list li {
@@ -1197,9 +1156,9 @@ html[data-theme="light"] .radar-list li {
   text-decoration: none;
 }
 
-/* ==========================================================================
-   MOBILE & RESPONSIVE - ✅ BEST PRACTICES IMPLEMENTATION
-   ========================================================================== */
+/* ======================================================================
+   RESPONSIVE
+   ====================================================================== */
 
 /* --------------------------------------------------
    Tablet / Small Laptop (1024px and down)
@@ -1211,37 +1170,35 @@ html[data-theme="light"] .radar-list li {
 
   .app-panel {
     grid-template-columns: 1fr;
-    gap: 0;
+    gap: 12px;
   }
 
-  /* ✅ Simplified sidebar for tablet */
   .sidebar {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: flex-start;
     gap: 12px;
     border-bottom: 1px solid var(--border);
-    margin-bottom: 12px;
-    max-height: 280px;
+    margin-bottom: 0;
+    max-height: 320px;
     overflow-y: auto;
   }
-  
+
   .sidebar-section {
     flex: 1;
     min-width: 280px;
   }
 
-  /* ✅ 2-Column grids for tablet */
   .suite-home-grid,
   .fleet-metrics-grid,
   .radar-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .fleet-layout {
     grid-template-columns: 1fr;
   }
-  
+
   .board-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1253,280 +1210,418 @@ html[data-theme="light"] .radar-list li {
 }
 
 /* --------------------------------------------------
-   Mobile (768px and down) - ✅ CORE MOBILE OPTIMIZATIONS
+   MOBILE RESET + NEW MOBILE LAYOUT (<= 768px)
+   Completely different layout on mobile ONLY
    -------------------------------------------------- */
 @media (max-width: 768px) {
-  /* ✅ 1. SIMPLIFIED HEADER FOR MOBILE */
-  .topbar {
-    flex-wrap: wrap;
+  :root {
+    --tap: 44px;
+    --bottom-nav-h: 74px; /* visual height, not including safe-area */
+  }
+
+  /* Reduce “all caps” readability issues on tiny screens */
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: 0.06em;
+  }
+
+  /* Make the page breathe and prevent overflow */
+  .main-layout {
+    padding: 10px;
+  }
+
+  /* Turn the entire app into a clean single-column flow */
+  .app-panel {
+    display: flex;
+    flex-direction: column;
     gap: 12px;
-    padding: 12px;
-    min-height: 60px;
+    max-width: 100%;
+  }
+
+  /* --------------------------------------------------
+     TOPBAR: compact + stacked controls
+     -------------------------------------------------- */
+  .topbar {
+    padding: calc(10px + env(safe-area-inset-top)) 12px 10px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+    backdrop-filter: blur(10px);
   }
 
   .brand {
     width: 100%;
     justify-content: space-between;
+    gap: 10px;
   }
-  
-  /* ✅ Hide text on mobile to reduce clutter */
-  .brand-text { 
-    display: none; 
+
+  .logo-orb {
+    width: 140px;
+    height: 42px;
+    border-radius: 12px;
   }
-  
+
+  .brand-text {
+    display: none; /* keep header clean */
+  }
+
   .topbar-right {
     width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
   }
 
   #org-switcher {
     width: 100%;
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
     gap: 8px;
   }
 
-  .user-chip {
-    flex: 1;
-    min-width: auto;
-    background: transparent;
-    border: none;
-    padding: 0;
-    align-items: flex-start;
-  }
-  
-  /* ✅ Hide email on mobile to save space */
-  .user-chip span:last-child { 
-    display: none; 
+  #org-select {
+    width: 100%;
+    min-height: var(--tap);
+    font-size: 16px;
   }
 
-  /* ✅ 2. SINGLE COLUMN GRIDS FOR MOBILE */
+  .user-chip {
+    justify-self: end;
+    min-height: var(--tap);
+    padding: 8px 10px;
+    border-radius: 14px;
+    font-size: 0.9rem;
+  }
+
+  .user-chip span:last-child {
+    display: none; /* hide email for space */
+  }
+
+  /* --------------------------------------------------
+     SIDEBAR becomes a MOBILE PROJECT PICKER STRIP
+     -------------------------------------------------- */
+  .sidebar {
+    padding: 10px;
+    gap: 10px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    box-shadow: none; /* reduce heavy shadows on mobile */
+  }
+
+  .sidebar-section {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Hide activity list completely (too noisy on mobile) */
+  .activity-list {
+    display: none;
+  }
+
+  /* Project list becomes horizontal cards (thumb-friendly) */
+  .project-list {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+
+  .project-list li {
+    flex: 0 0 auto;
+    min-width: 240px;
+    max-width: 85vw;
+    min-height: calc(var(--tap) + 10px);
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--card2);
+    scroll-snap-align: start;
+    align-items: flex-start;
+  }
+
+  .project-name-text {
+    white-space: normal;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.25;
+  }
+
+  /* --------------------------------------------------
+     SUITE TABS become a FIXED BOTTOM NAV (thumb zone)
+     -------------------------------------------------- */
+  .suite-tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom)) 12px;
+
+    background: var(--topbar-bg);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .suite-tab {
+    flex: 1 0 auto;
+    min-width: 120px;
+    min-height: var(--tap);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+
+    /* Mobile readability: stop screaming uppercase */
+    text-transform: none;
+    letter-spacing: 0.02em;
+  }
+
+  /* Make sure content never hides behind the bottom nav */
+  .board-area,
+  .suite-view,
+  .bi-view,
+  .fleet-view,
+  .radar-view {
+    padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+  }
+
+  /* --------------------------------------------------
+     BOARD: NO HORIZONTAL SCROLL — columns STACK VERTICALLY
+     -------------------------------------------------- */
+  .board-area {
+    gap: 12px;
+  }
+
+  .board-header {
+    padding: 10px 10px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    box-shadow: none;
+  }
+
+  /* Actions become a clean grid */
+  .board-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .board-actions .btn {
+    width: 100%;
+  }
+
+  .board {
+    /* override the desktop grid-scroller */
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    padding: 0;
+    gap: 12px;
+  }
+
+  .column {
+    width: 100%;
+    min-height: auto;
+    padding: 12px;
+    border-radius: 18px;
+    box-shadow: none;
+  }
+
+  .column-header {
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border2);
+  }
+
+  .column-title {
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+  }
+
+  .column-body {
+    min-height: auto;
+    gap: 10px;
+  }
+
+  .task-card {
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .task-meta {
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-start;
+  }
+
+  .priority-pill {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+
+  /* --------------------------------------------------
+     FORMS / INPUTS: fix iOS zoom + improve spacing
+     -------------------------------------------------- */
+  .btn {
+    min-height: var(--tap);
+    padding: 10px 16px;
+    font-size: 1rem;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important; /* prevents iOS zoom */
+    min-height: var(--tap);
+  }
+
+  /* Comment/attachment rows stack (no side-by-side squeezing) */
+  .comment-form,
+  .attachment-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .attachment-item {
+    grid-template-columns: 1fr;
+  }
+
+  .attachment-delete-btn {
+    width: 100%;
+    min-height: var(--tap);
+  }
+
+  /* --------------------------------------------------
+     TASK DETAIL: full-screen mobile modal (no weird half sheet issues)
+     -------------------------------------------------- */
+  .task-detail {
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+
+    width: 100%;
+    height: 100dvh;
+
+    border-radius: 0;
+    border: none;
+
+    padding: calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom)) 14px;
+
+    background: var(--card);
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .task-detail .close-btn {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    right: 12px;
+    width: var(--tap);
+    height: var(--tap);
+    z-index: 60;
+    background: var(--card2);
+    border: 1px solid var(--border);
+  }
+
+  /* --------------------------------------------------
+     VIEW PADDING: tighten and simplify
+     -------------------------------------------------- */
+  .suite-view,
+  .bi-view,
+  .fleet-view,
+  .radar-view {
+    padding: 12px;
+  }
+
   .suite-home-grid,
   .fleet-metrics-grid,
   .radar-grid {
     grid-template-columns: 1fr;
   }
-  
-  .fleet-view,
-  .bi-view,
-  .suite-view,
-  .radar-view {
-    padding: 14px 14px;
+
+  .bi-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  /* ✅ 3. HORIZONTAL SNAP SCROLL FOR BOARD (Native App Feel) */
-  .board {
-    grid-auto-columns: min(320px, 85vw);
-    gap: 16px;
-    padding: 12px 16px;
-    scroll-snap-type: x mandatory;
-    scroll-padding: 0 16px;
-  }
-
-  .column {
-    scroll-snap-align: center;
-    height: auto;
-    max-height: 75vh;
-  }
-
-  .column-body {
-    overflow-y: auto;
-    max-height: 60vh;
-  }
-
-  /* ✅ 4. BETTER TOUCH TARGETS (44px minimum) */
-  .btn {
-    min-height: 48px;
-    padding: 12px 20px;
-    font-size: 1rem;
-  }
-
-  /* ✅ 5. PREVENT iOS ZOOM ON INPUT FOCUS */
-  input, 
-  select, 
-  textarea {
-    font-size: 16px !important;
-    min-height: 48px;
-  }
-
-  /* ✅ 6. MODERN BOTTOM SHEET MODAL FOR TASK DETAIL */
-  .task-detail {
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
+  .bi-toolbar {
     width: 100%;
-    height: 90vh;
-    border-radius: 24px 24px 0 0;
-    border-bottom: none;
-    box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
-    border-top: 1px solid var(--accent-soft);
-    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    background: var(--card); 
-    backdrop-filter: blur(20px); 
-    -webkit-backdrop-filter: blur(20px);
-    padding: 20px;
   }
 
-  /* ✅ Bottom sheet handle indicator */
-  .task-detail::after {
-    content: "";
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 4px;
-    background: var(--border2);
-    border-radius: 10px;
+  .chart-wrap {
+    height: 200px;
   }
 
-  .task-detail .close-btn {
-    top: 12px;
-    right: 12px;
-    background: var(--card2);
-    width: 48px;
-    height: 48px;
-    font-size: 1.3rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  }
-
-  /* ✅ 7. LARGER TEXT FOR READABILITY */
-  body {
-    font-size: 16px;
-  }
-
-  h1, h2, h3 {
-    line-height: 1.3;
-  }
-
-  .task-title {
-    font-size: 1.05rem;
-    line-height: 1.4;
-  }
-
-  .suite-home-title,
-  .radar-header h2 {
-    font-size: 1.3rem;
-  }
-
-  /* ✅ 8. BETTER SPACING FOR TOUCH */
-  .project-list li,
-  .activity-list li {
-    padding: 14px 16px;
-    min-height: 48px;
-  }
-
-  .task-card {
-    padding: 16px 18px;
-    min-height: 48px;
-  }
-
-  /* ✅ 9. SIMPLIFIED NAV FOR MOBILE */
-  .suite-tabs {
-    width: 100%;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
-  
-  .suite-tab {
-    white-space: nowrap;
-    flex: 0 0 auto;
-    padding: 10px 16px;
-    min-height: 44px;
+  /* Touch devices: don’t rely on hover behavior */
+  .btn:hover,
+  .task-card:hover,
+  .social-icon:hover,
+  .logo-orb:hover,
+  .radar-clickable:hover,
+  .project-list li:hover {
+    transform: none;
+    box-shadow: none;
   }
 }
 
 /* --------------------------------------------------
-   Small Mobile (480px and down) - ✅ EXTRA OPTIMIZATIONS
+   Small Mobile (480px and down)
    -------------------------------------------------- */
 @media (max-width: 480px) {
-  /* ✅ Smaller logo for tiny screens */
-  .logo-orb {
-    width: 140px;
-    height: 44px;
+  .main-layout {
+    padding: 8px;
   }
 
-  /* ✅ Compact charts */
-  .chart-wrap { 
-    height: 200px; 
+  .topbar-right {
+    grid-template-columns: 1fr;
   }
 
-  /* ✅ Full-width buttons for easier tapping */
-  .board-actions .btn {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .auth-actions-row .btn {
+  .user-chip {
+    justify-self: start;
     width: 100%;
   }
 
-  /* ✅ Adjust board columns for very small screens */
-  .board {
-    grid-auto-columns: min(280px, 90vw);
+  .board-actions {
+    grid-template-columns: 1fr;
   }
 
-  .radar-view,
-  .suite-view,
-  .fleet-view,
-  .bi-view {
-    padding: 12px 10px;
-  }
-  
-  .radar-header h2,
-  .suite-home-title {
-    font-size: 1.2rem;
-  }
-  
-  .auth-panel {
-    padding: 10px;
+  .chart-wrap {
+    height: 180px;
   }
 
-  /* ✅ Larger minimum touch targets */
-  .btn,
-  input,
-  select,
-  textarea,
-  .task-card,
-  .project-list li {
-    min-height: 48px;
+  .suite-tab {
+    min-width: 110px;
   }
 }
 
-/* ✅ ACCESSIBILITY: Reduced motion support */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  html, 
-  body, 
-  .card, 
-  .btn, 
-  .sidebar, 
-  .topbar, 
-  .task-card, 
-  .column, 
-  .logo-orb, 
+  html,
+  body,
+  .card,
+  .btn,
+  .sidebar,
+  .topbar,
+  .task-card,
+  .column,
+  .logo-orb,
   .task-detail {
     transition: none !important;
     animation: none !important;
-  }
-  
-  .board {
-    scroll-behavior: auto;
-  }
-}
-
-/* ✅ Bottom sheet slide-up animation */
-@keyframes slideUp {
-  from { 
-    transform: translateY(100%); 
-    opacity: 0;
-  }
-  to { 
-    transform: translateY(0); 
-    opacity: 1;
   }
 }
