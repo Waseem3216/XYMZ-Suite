@@ -2735,6 +2735,61 @@
     if (window.__xymzToggleDrawer) return window.__xymzToggleDrawer();
   }
 
+  // ----------------------------------------------------
+// Mobile Topbar Minimize (logo-only mode)
+// - Tap "Hide" to minimize
+// - Tap logo to restore
+// - Saves preference in localStorage
+// ----------------------------------------------------
+(() => {
+  const KEY = "xymzTopbarMinimized";
+  const body = document.body;
+  const btn = document.getElementById("btn-topbar-min");
+  const logo = document.getElementById("logo-orb");
+  const mq = window.matchMedia("(max-width: 768px)");
+
+  function setMinimized(on) {
+    const shouldApply = on && mq.matches;
+    body.classList.toggle("topbar-minimized", shouldApply);
+    if (btn) btn.setAttribute("aria-pressed", shouldApply ? "true" : "false");
+
+    if (shouldApply) localStorage.setItem(KEY, "1");
+    else localStorage.removeItem(KEY);
+  }
+
+  function restoreFromStorage() {
+    const saved = localStorage.getItem(KEY) === "1";
+    setMinimized(saved);
+  }
+
+  function toggleMinimize() {
+    if (!mq.matches) return;
+    setMinimized(!body.classList.contains("topbar-minimized"));
+  }
+
+  // Minimize button (only visible on mobile via CSS)
+  if (btn) btn.addEventListener("click", toggleMinimize);
+
+  // Tap logo to restore (only when minimized)
+  if (logo) {
+    logo.addEventListener("click", () => {
+      if (body.classList.contains("topbar-minimized")) setMinimized(false);
+    });
+
+    logo.addEventListener("keydown", (e) => {
+      const isActivate = e.key === "Enter" || e.key === " ";
+      if (isActivate && body.classList.contains("topbar-minimized")) {
+        e.preventDefault();
+        setMinimized(false);
+      }
+    });
+  }
+
+  // Initial restore + handle resize/orientation changes
+  restoreFromStorage();
+  if (mq.addEventListener) mq.addEventListener("change", restoreFromStorage);
+})();
+
 
   /* =========================
      INIT

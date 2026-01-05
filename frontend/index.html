@@ -21,12 +21,17 @@
     <link rel="stylesheet" href="css/styles.css" />
   </head>
 
-  <body class="theme-suite">
+  <body class="theme-suite mobile-layout-2">
     <div class="app-shell">
-      <!-- ================= TOPBAR ================= -->
       <header class="topbar">
         <div class="brand">
-          <div class="logo-orb" aria-hidden="true"></div>
+          <div
+            id="logo-orb"
+            class="logo-orb"
+            role="button"
+            tabindex="0"
+            aria-label="XYMZ logo. Tap to restore the top menu."
+          ></div>
 
           <div class="brand-text">
             <h1 id="brand-title">XYMZ.SUITE</h1>
@@ -44,6 +49,16 @@
             <span id="user-name"></span>
             <span id="user-email"></span>
           </div>
+
+          <button
+            id="btn-topbar-min"
+            class="btn secondary small topbar-min-btn"
+            type="button"
+            aria-pressed="false"
+            title="Minimize top bar"
+          >
+            Hide
+          </button>
 
           <button id="btn-theme" class="btn secondary small" type="button" title="Toggle dark/light">
             Theme
