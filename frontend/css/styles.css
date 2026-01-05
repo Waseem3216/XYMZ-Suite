@@ -1802,3 +1802,41 @@ html[data-theme="light"] .radar-list li {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
+
+
+/* ======================================================================
+   MOBILE FIX: OPS Kanban columns stacked vertically (easy drag/drop)
+   Keeps the rest of the mobile design the same
+   ====================================================================== */
+   @media (max-width: 768px) {
+    /* Force OPS board to be vertical stack (override layout-2 horizontal snap) */
+    body:not(.mobile-layout-1) #ops-view .board {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 12px !important;
+  
+      overflow: visible !important;     /* no horizontal scrolling */
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+  
+      scroll-snap-type: none !important;
+      -webkit-overflow-scrolling: auto !important;
+  
+      padding: 0 !important;            /* keep your card padding handling */
+    }
+  
+    /* Each column becomes full width, stacked */
+    body:not(.mobile-layout-1) #ops-view .column {
+      width: 100% !important;
+      min-height: auto !important;
+      scroll-snap-align: none !important;
+    }
+  
+    /* Let the whole page scroll instead of column bodies scrolling internally */
+    body:not(.mobile-layout-1) #ops-view .column-body {
+      max-height: none !important;
+      overflow: visible !important;
+      padding-right: 0 !important;
+    }
+  }
+  
