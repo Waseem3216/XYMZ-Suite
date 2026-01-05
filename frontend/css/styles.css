@@ -1313,6 +1313,14 @@ html[data-theme="light"] .radar-list li {
     min-height: var(--tap);
     font-size: 0.95rem;
     padding: 10px 14px;
+    display: none !important;
+  }
+  
+  /* Show only on mobile */
+  @media (max-width: 768px) {
+    #btn-topbar-min {
+      display: inline-flex !important;
+    }
   }
 
   /* user chip: compact pill */
