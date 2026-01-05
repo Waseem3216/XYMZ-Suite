@@ -223,7 +223,7 @@ h6 {
   font-weight: 700;
 }
 
-/* ✅ Minimize button: hidden by default (shown in mobile media query) */
+/* Minimize button (hidden by default, shown on mobile) */
 .topbar-min-btn {
   display: none;
 }
@@ -1159,7 +1159,7 @@ html[data-theme="light"] .radar-list li {
 }
 
 /* ======================================================================
-   TABLET (keep mostly the same)
+   TABLET
    ====================================================================== */
 @media (max-width: 1024px) {
   .main-layout {
@@ -1208,15 +1208,15 @@ html[data-theme="light"] .radar-list li {
 }
 
 /* ======================================================================
-   MOBILE OVERHAUL (<= 768px) — mobile-layout-1 ONLY + topbar minimize
+   MOBILE (<= 768px) — BOTH LAYOUTS, DEFAULT = LAYOUT-2 (biased)
    ====================================================================== */
 @media (max-width: 768px) {
   :root {
     --tap: 44px;
-    --nav-h: 76px;
+    --nav-h: 72px;
   }
 
-  /* Readability: reduce aggressive heading styling */
+  /* Shared mobile readability */
   h1, h2, h3, h4, h5, h6 {
     letter-spacing: 0.06em;
   }
@@ -1225,18 +1225,27 @@ html[data-theme="light"] .radar-list li {
     overflow-x: hidden;
   }
 
-  /* ✅ show minimize button on mobile */
+  /* Shared: tap sizes + iOS zoom fix */
+  .btn {
+    min-height: var(--tap);
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+    min-height: var(--tap);
+  }
+
+  /* Show minimize button on mobile */
   .topbar-min-btn {
     display: inline-flex;
   }
 
-  /* Make everything a clean single-column app */
+  /* Mobile: make app stack */
   .main-layout {
     padding: 10px;
   }
-
-  /* Mobile layout 1 uses app-panel as a vertical stack */
-  body.mobile-layout-1 .app-panel {
+  .app-panel {
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -1244,7 +1253,7 @@ html[data-theme="light"] .radar-list li {
   }
 
   /* ---------------------------
-     TOPBAR: stacked + usable
+     TOPBAR (shared mobile base)
      --------------------------- */
   .topbar {
     flex-wrap: wrap;
@@ -1259,32 +1268,37 @@ html[data-theme="light"] .radar-list li {
   }
 
   .logo-orb {
-    width: 140px;
-    height: 42px;
+    width: 150px;
+    height: 44px;
     border-radius: 12px;
-    cursor: pointer; /* tap to restore when minimized */
+    cursor: pointer; /* useful for restore on minimized mode */
   }
 
   .brand-text {
-    display: none; /* on mobile this takes too much space */
+    display: none;
   }
 
+  /* Default: topbar actions become horizontal scroll row (layout-2 bias) */
   .topbar-right {
     width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
     gap: 10px;
-    align-items: center;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
   }
 
-  /* Org switcher spans full width when visible */
+  .topbar-right > * {
+    flex: 0 0 auto;
+  }
+
+  /* Org switcher becomes compact + scroll-friendly */
   #org-switcher {
-    width: 100%;
-    grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 1fr auto;
     gap: 10px;
     align-items: center;
+    min-width: 320px;
   }
 
   #org-select {
@@ -1301,60 +1315,326 @@ html[data-theme="light"] .radar-list li {
     padding: 10px 14px;
   }
 
-  /* User chip becomes a simple name row */
+  /* user chip: compact pill */
   .user-chip {
-    grid-column: 1 / -1;
     flex-direction: row;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     min-height: var(--tap);
     padding: 10px 12px;
-    border-radius: 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+    gap: 10px;
   }
-
   #user-email {
     display: none;
   }
 
   /* ---------------------------
-     ✅ TOPBAR MINIMIZED MODE (logo only)
+     TOPBAR MINIMIZED MODE (logo-only)
      --------------------------- */
   body.topbar-minimized .topbar-right {
     display: none;
   }
-
   body.topbar-minimized .topbar {
     padding: calc(8px + env(safe-area-inset-top)) 12px 8px 12px;
     gap: 0;
   }
-
   body.topbar-minimized .brand {
     justify-content: center;
   }
-
   body.topbar-minimized .logo-orb {
-    width: 170px;
-    height: 44px;
+    width: 180px;
+    height: 46px;
   }
 
   /* ---------------------------
-     SIDEBAR: PROJECT PICKER
+     Bottom nav (shared)
      --------------------------- */
-  body.mobile-layout-1 .sidebar {
+  .suite-tabs.card {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+
+    display: flex;
+    gap: 10px;
+
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom)) 12px;
+
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+
+    background: var(--topbar-bg);
+    backdrop-filter: blur(12px);
+
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .suite-tabs.card::before {
+    content: none;
+  }
+
+  /* Layout-2 bias: slightly smaller tabs + more fit */
+  .suite-tab {
+    min-height: var(--tap);
+    padding: 10px 12px;
+    font-size: 0.92rem;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    flex: 0 0 auto;
+    min-width: 112px;
+    border-radius: 14px;
+    white-space: nowrap;
+  }
+
+  /* Prevent content hiding behind bottom bar */
+  .board-area {
+    padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  }
+
+  /* Views: tighter padding */
+  .suite-view,
+  .bi-view,
+  .fleet-view,
+  .radar-view {
+    padding: 12px;
+  }
+
+  .suite-home-grid,
+  .fleet-metrics-grid,
+  .radar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-wrap {
+    height: 200px;
+  }
+
+  /* ==========================================================
+     MOBILE LAYOUT-2 (DEFAULT) — native Kanban snap + compact lists
+     Applies when NOT using mobile-layout-1
+     ========================================================== */
+  body:not(.mobile-layout-1) .sidebar {
     padding: 12px;
     border-radius: 16px;
   }
 
-  /* Hide the entire Activity section on mobile */
+  /* Projects: compact horizontal "chips" row (more dense than layout-1 cards) */
+  body:not(.mobile-layout-1) .project-list {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+
+  body:not(.mobile-layout-1) .project-list li {
+    flex: 0 0 auto;
+    min-width: 200px;
+    max-width: 72vw;
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card2);
+    scroll-snap-align: start;
+    align-items: center;
+  }
+
+  body:not(.mobile-layout-1) .project-name-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body:not(.mobile-layout-1) #btn-new-project {
+    min-height: var(--tap);
+    margin-top: 10px;
+    font-size: 1rem;
+  }
+
+  /* Activity stays visible but smaller */
+  body:not(.mobile-layout-1) .activity-list {
+    max-height: 140px;
+    overflow-y: auto;
+    border-radius: 12px;
+    border: 1px solid var(--border2);
+    background: rgba(2, 6, 23, 0.10);
+  }
+  html[data-theme="light"] body:not(.mobile-layout-1) .activity-list {
+    background: rgba(248, 250, 252, 0.55);
+  }
+
+  /* OPS actions: 2-column buttons */
+  body:not(.mobile-layout-1) .board-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  body:not(.mobile-layout-1) .board-actions .btn {
+    width: 100%;
+    min-height: var(--tap);
+    font-size: 1rem;
+    padding: 10px 14px;
+  }
+
+  /* Layout-2 Kanban: horizontal snap columns */
+  body:not(.mobile-layout-1) .board.card {
+    padding: 12px;
+  }
+
+  body:not(.mobile-layout-1) .board {
+    display: grid;
+    grid-auto-columns: 88vw;
+    grid-auto-flow: column;
+    overflow-x: auto;
+    gap: 12px;
+    padding: 0;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body:not(.mobile-layout-1) .column {
+    scroll-snap-align: start;
+    border-radius: 18px;
+    padding: 12px;
+    min-height: auto;
+    box-shadow: none;
+  }
+
+  body:not(.mobile-layout-1) .column-header {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border2);
+  }
+
+  body:not(.mobile-layout-1) .column-title {
+    font-size: 0.92rem;
+    letter-spacing: 0.06em;
+  }
+
+  /* Column body scrolls internally */
+  body:not(.mobile-layout-1) .column-body {
+    max-height: 52vh;
+    overflow-y: auto;
+    padding-right: 4px;
+    gap: 10px;
+    min-height: auto;
+  }
+
+  body:not(.mobile-layout-1) .task-card {
+    border-radius: 16px;
+    padding: 12px 14px;
+  }
+
+  body:not(.mobile-layout-1) .task-meta {
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-start;
+  }
+
+  body:not(.mobile-layout-1) .priority-pill {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+
+  /* Task detail (layout-2): bottom sheet */
+  body:not(.mobile-layout-1) .task-detail {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+
+    width: 100%;
+    height: 85vh;
+
+    border-radius: 22px 22px 0 0;
+    border-bottom: none;
+
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.32);
+    border-top: 1px solid var(--accent-soft);
+
+    animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    background: var(--card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+
+    padding: 14px 14px calc(16px + env(safe-area-inset-bottom)) 14px;
+    z-index: 100;
+  }
+
+  body:not(.mobile-layout-1) .task-detail::before {
+    content: none;
+  }
+
+  body:not(.mobile-layout-1) .task-detail::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 42px;
+    height: 4px;
+    background: var(--border2);
+    border-radius: 999px;
+    opacity: 0.9;
+  }
+
+  body:not(.mobile-layout-1) .task-detail .close-btn {
+    position: sticky;
+    top: 0;
+    float: right;
+    width: var(--tap);
+    height: var(--tap);
+    border-radius: 999px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    z-index: 110;
+  }
+
+  /* Comment/attachment rows stack on mobile */
+  body:not(.mobile-layout-1) .comment-form,
+  body:not(.mobile-layout-1) .attachment-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  body:not(.mobile-layout-1) .comment-form .btn,
+  body:not(.mobile-layout-1) .attachment-form .btn {
+    width: 100%;
+  }
+  body:not(.mobile-layout-1) .attachment-item {
+    grid-template-columns: 1fr;
+  }
+  body:not(.mobile-layout-1) .attachment-delete-btn {
+    width: 100%;
+    min-height: var(--tap);
+  }
+
+  /* ==========================================================
+     MOBILE LAYOUT-1 (OPTIONAL) — vertical columns + fullscreen detail
+     Enable by adding: body.mobile-layout-1
+     ========================================================== */
+
+  /* Hide activity section on layout-1 */
   body.mobile-layout-1 .sidebar .sidebar-section:nth-child(2) {
     display: none;
   }
 
-  body.mobile-layout-1 .sidebar-section h2 {
-    font-size: 0.9rem;
-  }
-
-  /* Projects become swipeable horizontal cards */
+  /* Projects become larger swipe cards */
   body.mobile-layout-1 .project-list {
     display: flex;
     flex-direction: row;
@@ -1380,7 +1660,6 @@ html[data-theme="light"] .radar-list li {
     align-items: flex-start;
   }
 
-  /* Allow project name to wrap nicely */
   body.mobile-layout-1 .project-name-text {
     white-space: normal;
     overflow: hidden;
@@ -1390,114 +1669,7 @@ html[data-theme="light"] .radar-list li {
     line-height: 1.25;
   }
 
-  body.mobile-layout-1 #btn-new-project {
-    min-height: var(--tap);
-    margin-top: 8px;
-    font-size: 1rem;
-  }
-
-  /* ---------------------------
-     BOTTOM NAV: suite tabs fixed
-     --------------------------- */
-  body.mobile-layout-1 .suite-tabs.card {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 50;
-
-    display: flex;
-    gap: 10px;
-
-    padding: 10px 12px calc(10px + env(safe-area-inset-bottom)) 12px;
-
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-    border-bottom: none;
-
-    background: var(--topbar-bg);
-    backdrop-filter: blur(12px);
-
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  body.mobile-layout-1 .suite-tabs.card::before {
-    content: none; /* remove inner frame on fixed bar */
-  }
-
-  body.mobile-layout-1 .suite-tab {
-    min-height: var(--tap);
-    padding: 10px 14px;
-    font-size: 0.95rem;
-
-    text-transform: none;
-    letter-spacing: 0.02em;
-
-    flex: 0 0 auto;
-    min-width: 130px;
-    border-radius: 14px;
-  }
-
-  /* Prevent content hiding behind bottom bar */
-  body.mobile-layout-1 .board-area {
-    padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
-  }
-
-  /* ---------------------------
-     VIEWS: padding + single column
-     --------------------------- */
-  body.mobile-layout-1 .suite-view,
-  body.mobile-layout-1 .bi-view,
-  body.mobile-layout-1 .fleet-view,
-  body.mobile-layout-1 .radar-view {
-    padding: 12px;
-  }
-
-  body.mobile-layout-1 .suite-home-grid,
-  body.mobile-layout-1 .fleet-metrics-grid,
-  body.mobile-layout-1 .radar-grid {
-    grid-template-columns: 1fr;
-  }
-
-  body.mobile-layout-1 .fleet-layout {
-    grid-template-columns: 1fr;
-  }
-
-  body.mobile-layout-1 .chart-wrap {
-    height: 200px;
-  }
-
-  /* ---------------------------
-     OPS: NO SIDEWAYS KANBAN
-     Columns stack vertically
-     --------------------------- */
-  body.mobile-layout-1 #ops-view {
-    display: block;
-  }
-
-  body.mobile-layout-1 .board-header.card {
-    padding: 12px;
-    border-radius: 16px;
-  }
-
-  /* Make action buttons usable on phones */
-  body.mobile-layout-1 .board-actions {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  body.mobile-layout-1 .board-actions .btn {
-    width: 100%;
-    min-height: var(--tap);
-    font-size: 1rem;
-    padding: 10px 14px;
-  }
-
-  /* Board container should not be a scrolling “card” anymore */
+  /* OPS: columns stack vertically */
   body.mobile-layout-1 .board.card {
     background: transparent;
     border: none;
@@ -1514,6 +1686,7 @@ html[data-theme="light"] .radar-list li {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    overflow: visible;
   }
 
   body.mobile-layout-1 .column {
@@ -1524,82 +1697,19 @@ html[data-theme="light"] .radar-list li {
     box-shadow: none;
   }
 
-  body.mobile-layout-1 .column-header {
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border2);
-  }
-
-  body.mobile-layout-1 .column-title {
-    font-size: 0.95rem;
-    letter-spacing: 0.06em;
-  }
-
   body.mobile-layout-1 .column-body {
     min-height: auto;
     gap: 10px;
+    overflow: visible;
+    max-height: none;
   }
 
-  body.mobile-layout-1 .task-card {
-    border-radius: 16px;
-    padding: 12px 14px;
-  }
-
-  body.mobile-layout-1 .task-meta {
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: flex-start;
-  }
-
-  body.mobile-layout-1 .priority-pill {
-    padding: 6px 12px;
-    font-size: 0.75rem;
-  }
-
-  /* ---------------------------
-     Inputs: iOS zoom fix + tap sizes
-     --------------------------- */
-  .btn {
-    min-height: var(--tap);
-  }
-
-  input,
-  select,
-  textarea {
-    font-size: 16px !important;
-    min-height: var(--tap);
-  }
-
-  /* Comment / attachment rows should stack */
-  body.mobile-layout-1 .comment-form,
-  body.mobile-layout-1 .attachment-form {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  body.mobile-layout-1 .comment-form .btn,
-  body.mobile-layout-1 .attachment-form .btn {
-    width: 100%;
-  }
-
-  body.mobile-layout-1 .attachment-item {
-    grid-template-columns: 1fr;
-  }
-
-  body.mobile-layout-1 .attachment-delete-btn {
-    width: 100%;
-    min-height: var(--tap);
-  }
-
-  /* ---------------------------
-     Task detail: FULLSCREEN modal
-     --------------------------- */
+  /* Task detail (layout-1): full screen */
   body.mobile-layout-1 .task-detail.card {
     top: 0;
     right: 0;
     left: 0;
     bottom: 0;
-
     width: 100%;
     height: 100dvh;
 
@@ -1608,8 +1718,7 @@ html[data-theme="light"] .radar-list li {
     box-shadow: none;
 
     padding: calc(16px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom)) 14px;
-
-    z-index: 100;
+    z-index: 120;
     background: var(--card);
   }
 
@@ -1623,12 +1732,12 @@ html[data-theme="light"] .radar-list li {
     right: 12px;
     width: var(--tap);
     height: var(--tap);
-    z-index: 110;
+    z-index: 130;
     background: var(--card2);
     border: 1px solid var(--border);
   }
 
-  /* Touch devices: kill hover effects that look “glitchy” on phones */
+  /* Kill hover effects on phones (prevents weird “glitch” feel) */
   .btn:hover,
   .task-card:hover,
   .social-icon:hover,
@@ -1648,20 +1757,31 @@ html[data-theme="light"] .radar-list li {
     padding: 8px;
   }
 
-  .topbar-right {
-    grid-template-columns: 1fr;
-  }
-
-  .board-actions {
-    grid-template-columns: 1fr;
+  /* topbar actions row stays scrollable; reduce min widths slightly */
+  #org-switcher {
+    min-width: 290px;
   }
 
   .suite-tab {
-    min-width: 120px;
+    min-width: 104px;
+    font-size: 0.9rem;
   }
 
-  .project-list li {
+  /* default layout-2 chips get smaller */
+  body:not(.mobile-layout-1) .project-list li {
+    min-width: 180px;
+    max-width: 78vw;
+  }
+
+  /* layout-1 cards also shrink */
+  body.mobile-layout-1 .project-list li {
     min-width: 220px;
+  }
+
+  /* action buttons stack */
+  .board-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .chart-wrap {
@@ -1675,4 +1795,10 @@ html[data-theme="light"] .radar-list li {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* Bottom sheet animation (layout-2) */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
