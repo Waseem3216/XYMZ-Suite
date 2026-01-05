@@ -1310,14 +1310,9 @@ html[data-theme="light"] .radar-list li {
   #btn-theme,
   #btn-logout,
   #btn-topbar-min {
-    display: none !important;
-  }
-  
-  /* Show only on mobile */
-  @media (max-width: 768px) {
-    #btn-topbar-min {
-      display: inline-flex !important;
-    }
+    min-height: var(--tap);
+    font-size: 0.95rem;
+    padding: 10px 14px;
   }
 
   /* user chip: compact pill */
