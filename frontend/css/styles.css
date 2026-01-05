@@ -133,6 +133,7 @@ h6 {
   border-bottom: 1px solid var(--border);
   background: var(--topbar-bg);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -1228,68 +1229,99 @@ html[data-theme="light"] .radar-list li {
   }
 }
 
+/* ==================================================
+   ✅ MOBILE OFF-CANVAS DRAWER + FIXED TOPBAR
+   ================================================== */
+
+/* Hamburger button (JS injects it into .topbar) */
+.mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card2);
+  color: var(--text);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.mobile-menu-btn svg {
+  width: 22px;
+  height: 22px;
+}
+.mobile-menu-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-soft);
+  box-shadow: 0 12px 26px rgba(2, 6, 23, 0.16);
+}
+
+/* Overlay (JS injects it into body) */
+.mobile-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+  z-index: 90;
+}
+body.mobile-menu-open .mobile-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Lock scroll when open */
+body.mobile-menu-open {
+  overflow: hidden;
+}
+
 /* Phones */
 @media (max-width: 720px) {
-  /* Topbar becomes wrapped + stacked */
+  /* JS keeps this accurate; fallback is fine */
+  :root {
+    --topbar-h: 64px;
+  }
+
+  /* ✅ FIX: Fixed, single-row topbar on phones */
   .topbar {
-    flex-wrap: wrap;
+    position: fixed;
+    top: env(safe-area-inset-top);
+    left: 0;
+    right: 0;
+    z-index: 100;
+    flex-wrap: nowrap;
     gap: 10px;
     padding: 10px 12px;
   }
 
+  /* ✅ FIX: Push content below fixed topbar */
+  body {
+    padding-top: calc(var(--topbar-h) + env(safe-area-inset-top));
+  }
+
+  /* Show hamburger button on phones */
+  .mobile-menu-btn {
+    display: inline-flex;
+  }
+
+  /* Compact brand */
   .brand {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
   }
-
   .brand-text {
-    display: none; /* keeps topbar clean on phones */
+    display: none;
   }
-
   .logo-orb {
-    width: 170px;
-    height: 50px;
+    width: 150px;
+    height: 44px;
   }
 
+  /* Hide desktop topbar controls (we use drawer proxies) */
   .topbar-right {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  #org-switcher {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 8px;
-    align-items: center;
-  }
-
-  #org-select {
-    width: 100%;
-  }
-
-  .user-chip {
-    flex: 1;
-    min-width: 170px;
-    align-items: flex-start;
-  }
-
-  /* Buttons become easier to tap */
-  .btn {
-    padding: 9px 12px;
-    font-size: 0.9rem;
-  }
-  .btn.small {
-    padding: 8px 12px;
-    font-size: 0.9rem;
-  }
-
-  /* Auth panel becomes more roomy */
-  .auth-panel {
-    max-width: 520px;
-    padding: 14px 14px;
+    display: none !important;
   }
 
   /* Prevent iOS auto-zoom */
@@ -1299,18 +1331,91 @@ html[data-theme="light"] .radar-list li {
     font-size: 16px;
   }
 
-  /* Sidebar content better on phones */
-  .sidebar {
-    padding: 12px;
+  /* Tap friendly buttons */
+  .btn {
+    padding: 10px 12px;
+    font-size: 0.95rem;
   }
+  .btn.small {
+    padding: 10px 12px;
+    font-size: 0.95rem;
+  }
+
+  /* Auth panel roomy */
+  .auth-panel {
+    max-width: 520px;
+    padding: 14px 14px;
+  }
+
+  /* Make app panel single column */
+  .app-panel {
+    grid-template-columns: 1fr;
+  }
+
+  /* ✅ Sidebar becomes OFF-CANVAS drawer (still inside app-panel, so it stays hidden when logged out) */
+  .sidebar {
+    position: fixed;
+    top: calc(var(--topbar-h) + env(safe-area-inset-top));
+    left: 0;
+    bottom: 0;
+    width: min(88vw, 360px);
+    transform: translateX(-105%);
+    transition: transform 220ms ease;
+    z-index: 95;
+    overflow: auto;
+
+    padding: 12px;
+
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  body.mobile-menu-open .sidebar {
+    transform: translateX(0%);
+  }
+
+  /* Drawer header controls injected by JS */
+  .mobile-sidebar-extras {
+    display: grid;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border2);
+    margin-bottom: 10px;
+  }
+
+  .mobile-sidebar-extras .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .mobile-org-row {
+    display: grid;
+    gap: 8px;
+  }
+
+  .mobile-org-row label {
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Hide desktop org switcher + user chip on phone (drawer proxies replace them) */
+  #org-switcher,
+  .user-chip {
+    display: none !important;
+  }
+
+  /* Sidebar lists height */
   .project-list,
   .activity-list {
     max-height: 210px;
   }
 
-  /* Suite tabs more compact */
+  /* Suite tabs compact */
   .suite-tab {
-    padding: 9px 12px;
+    padding: 10px 12px;
     font-size: 0.76rem;
     white-space: nowrap;
   }
@@ -1328,7 +1433,7 @@ html[data-theme="light"] .radar-list li {
     height: 220px;
   }
 
-  /* Fleet view padding */
+  /* View padding */
   .fleet-view,
   .bi-view,
   .suite-view,
@@ -1344,11 +1449,11 @@ html[data-theme="light"] .radar-list li {
   }
 
   .logo-orb {
-    width: 155px;
-    height: 46px;
+    width: 145px;
+    height: 42px;
   }
 
-  /* Hide email line on tiny screens (keeps topbar from exploding) */
+  /* Hide email line on tiny screens */
   #user-email {
     display: none;
   }
