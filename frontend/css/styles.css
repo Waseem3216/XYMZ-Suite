@@ -1,8 +1,20 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap");
 
-/* ==========================================================================
-   THEME VARIABLES
-   ========================================================================== */
+/* --------------------------------------------------
+   Cross-theme constants (mobile-friendly defaults)
+   -------------------------------------------------- */
+:root {
+  /* Figma/Leadpages both emphasize touch-friendly targets (>=44px) */
+  --tap-size: 44px;
+
+  /* Safer padding defaults for small screens */
+  --page-pad: 16px;
+  --page-pad-sm: 12px;
+}
+
+/* --------------------------------------------------
+   Theme Variables
+   -------------------------------------------------- */
 html[data-theme="dark"] {
   --bg: radial-gradient(circle at top left, #020617 0, #020617 45%, #000 100%);
   --topbar-bg: radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 55%),
@@ -37,15 +49,21 @@ html[data-theme="light"] {
   --focus: rgba(37, 99, 235, 0.28);
 }
 
-/* ==========================================================================
-   BASE STYLES
-   ========================================================================== */
+/* Logo swap per theme */
+html[data-theme="dark"] .logo-orb {
+  background-image: url("../img/xymz-logo.png");
+}
+html[data-theme="light"] .logo-orb {
+  background-image: url("../img/xymz-logo2.png");
+}
+
+/* --------------------------------------------------
+   Base
+   -------------------------------------------------- */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
-  /* Prevent tap highlight color on mobile */
-  -webkit-tap-highlight-color: transparent; 
 }
 
 html,
@@ -56,6 +74,20 @@ body {
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+/* Improve media behavior on small screens (prevents overflow) */
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Reduce “tap flash” on mobile; keep interactions feeling native */
+:where(a, button, input, select, textarea) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* Smooth theme transition */
@@ -77,29 +109,30 @@ body {
   font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--text);
-  line-height: 1.6; /* Improved Readability for Mobile */
-  scroll-behavior: smooth;
-  overflow-x: hidden; /* Prevent horizontal scroll on body */
+  line-height: 1.5; /* better readability on mobile */
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   margin: 0;
-  line-height: 1.2;
 }
 
 .muted {
   color: var(--muted);
-  font-size: 0.9rem; /* Slightly larger for mobile readability */
+  font-size: 0.88rem;
   line-height: 1.5;
 }
 
 .link {
   color: var(--accent);
   text-decoration: none;
-  padding: 4px; /* Increase hit area for links */
 }
 .link:hover {
   text-decoration: underline;
@@ -115,20 +148,44 @@ h1, h2, h3, h4, h5, h6 {
   min-height: 100vh;
 }
 
-/* ==========================================================================
-   TOPBAR
-   ========================================================================== */
+/* --------------------------------------------------
+   Accessibility: focus-visible (keyboard-friendly)
+   -------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Strong, consistent focus rings across interactive UI */
+.btn:focus-visible,
+.tab:focus-visible,
+.suite-tab:focus-visible,
+.social-icon:focus-visible,
+#org-select:focus-visible,
+.attachment-delete-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--focus);
+  border-color: var(--accent);
+}
+
+/* --------------------------------------------------
+   Topbar
+   -------------------------------------------------- */
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+
+  /* Safe-area padding for notched devices */
+  padding: calc(10px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 10px
+    calc(16px + env(safe-area-inset-left));
+
   border-bottom: 1px solid var(--border);
   background: var(--topbar-bg);
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
-  z-index: 100; /* Ensure topbar stays above everything */
+  z-index: 10;
 }
 
 .brand {
@@ -138,22 +195,19 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .logo-orb {
-  width: 180px; /* Adjusted base size */
-  height: 50px;
-  border-radius: 12px;
-  background-size: contain;
-  background-position: left center;
+  width: clamp(140px, 30vw, 210px);
+  height: clamp(44px, 9vw, 60px);
+  border-radius: 14px;
+  background-size: cover;
+  background-position: center;
   background-repeat: no-repeat;
-  /* background-color removed to let logo shine, or transparent */
-  background-color: transparent; 
+  background-color: var(--card2);
 }
 
-/* Theme-specific logo handling */
-html[data-theme="dark"] .logo-orb {
-  background-image: url("../img/xymz-logo.png");
-}
-html[data-theme="light"] .logo-orb {
-  background-image: url("../img/xymz-logo2.png");
+.logo-orb:hover {
+  transform: translateY(-1px) rotate(-0.7deg);
+  border-color: var(--accent-soft-strong);
+  background-color: rgba(109, 116, 133, 0);
 }
 
 .brand-text {
@@ -162,7 +216,10 @@ html[data-theme="light"] .logo-orb {
   line-height: 1.05;
 }
 
-#brand-title { font-size: 1.15rem; }
+#brand-title {
+  font-size: 1.15rem;
+}
+
 #brand-subtitle {
   margin-top: 4px;
   font-size: 0.75rem;
@@ -183,16 +240,15 @@ html[data-theme="light"] .logo-orb {
   align-items: center;
 }
 
-/* TOUCH TARGET: Min height 44px+ */
 #org-select {
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--card2);
   color: var(--text);
-  padding: 0 16px;
-  height: 44px; /* Touch target fix */
-  font-size: 0.9rem;
+  padding: 7px 12px;
+  font-size: 0.85rem;
   outline: none;
+  min-height: 36px;
 }
 
 .user-chip {
@@ -200,44 +256,43 @@ html[data-theme="light"] .logo-orb {
   flex-direction: column;
   align-items: flex-end;
   font-size: 0.8rem;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--card2);
-  min-height: 44px; /* Touch target fix */
-  justify-content: center;
 }
 
-.user-chip span:first-child { font-weight: 700; }
+.user-chip span:first-child {
+  font-weight: 700;
+}
 
-/* ==========================================================================
-   BUTTONS (TOUCH OPTIMIZED)
-   ========================================================================== */
+/* --------------------------------------------------
+   Buttons
+   -------------------------------------------------- */
 .btn {
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--card2);
   color: var(--text);
-  min-height: 48px; /* Best Practice: 48px touch target */
-  padding: 0 20px;
-  font-size: 0.95rem; /* Readable font size */
-  font-weight: 500;
+  padding: 6px 12px;
+  font-size: 0.85rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   transition: box-shadow 200ms ease, transform 160ms ease, border-color 200ms ease;
-  white-space: nowrap;
-}
-
-.btn:active {
-  transform: scale(0.96); /* Feedback on tap */
+  min-height: 36px;
 }
 
 .btn:hover {
   box-shadow: 0 14px 32px rgba(2, 6, 23, 0.18);
+  transform: translateY(-1px);
   border-color: var(--accent-soft);
+}
+
+.btn:active {
+  transform: translateY(0);
 }
 
 .btn.primary {
@@ -248,7 +303,9 @@ html[data-theme="light"] .btn.primary {
   background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), var(--card2));
 }
 
-.btn.secondary { border-color: var(--border); }
+.btn.secondary {
+  border-color: var(--border);
+}
 
 .btn.danger {
   border-color: rgba(239, 68, 68, 0.7);
@@ -256,56 +313,62 @@ html[data-theme="light"] .btn.primary {
 }
 
 .btn.small {
-  min-height: 36px; /* Exception for desktop, overridden on mobile */
-  font-size: 0.85rem;
-  padding: 0 14px;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  min-height: 32px;
 }
 
-.btn.full-width { width: 100%; }
+.btn.full-width {
+  width: 100%;
+}
 
-/* ==========================================================================
-   LAYOUT
-   ========================================================================== */
+/* --------------------------------------------------
+   Layout Containers
+   -------------------------------------------------- */
 .main-layout {
   flex: 1;
   display: flex;
   justify-content: center;
-  padding: 16px;
+
+  /* Safe-area friendly on iOS */
+  padding: 14px;
+  padding-left: calc(14px + env(safe-area-inset-left));
+  padding-right: calc(14px + env(safe-area-inset-right));
 }
 
 .card {
   background: var(--card);
-  border-radius: 16px;
+  border-radius: 14px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
 }
 
+/* inner frame */
 .card::before {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: 16px;
+  inset: 8px;
+  border-radius: 12px;
   pointer-events: none;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
 }
 
-/* ==========================================================================
-   AUTH
-   ========================================================================== */
+/* --------------------------------------------------
+   Auth
+   -------------------------------------------------- */
 .auth-panel {
   width: 100%;
-  max-width: 440px;
-  padding: 24px;
+  max-width: 420px;
+  padding: 14px 16px;
 }
 
 .tabs {
   display: flex;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   background: var(--card2);
   border-radius: 999px;
-  padding: 4px;
+  padding: 3px;
   border: 1px solid var(--border);
 }
 
@@ -314,25 +377,24 @@ html[data-theme="light"] .btn.primary {
   border: none;
   background: transparent;
   color: var(--muted);
-  padding: 10px 0;
+  padding: 8px 0;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   border-radius: 999px;
-  min-height: 44px; /* Touch target */
+  transition: background 200ms ease, color 200ms ease;
+  min-height: 40px;
 }
 
 .tab.active {
   color: var(--text);
   background: var(--card);
   border: 1px solid var(--accent-soft);
-  font-weight: 600;
 }
 
 .auth-form label {
   display: block;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   margin-bottom: 8px;
-  color: var(--text);
 }
 
 .auth-form input,
@@ -340,46 +402,66 @@ html[data-theme="light"] .btn.primary {
 .auth-form textarea {
   width: 100%;
   margin-top: 4px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--card2);
   color: var(--text);
-  padding: 12px 16px; /* Larger padding for tap ease */
-  font-size: 16px; /* CRITICAL: Prevents iOS zoom */
-  min-height: 48px; /* Touch target */
-  appearance: none; /* Remove default browser styling */
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  min-height: 40px;
 }
 
 .auth-actions-row {
-  margin-top: 16px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-text {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  margin: 6px 0;
+}
+
+.admin-org-fields {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: var(--card2);
+}
+
+/* --------------------------------------------------
+   App panel layout
+   -------------------------------------------------- */
+.app-panel {
+  width: 100%;
+  max-width: 1320px;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 12px;
+}
+
+/* Sidebar */
+.sidebar {
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-/* ==========================================================================
-   APP PANEL (Grid System)
-   ========================================================================== */
-.app-panel {
-  width: 100%;
-  max-width: 1400px;
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 16px;
-}
-
-/* SIDEBAR */
-.sidebar {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
 .sidebar-section h2 {
   font-size: 0.95rem;
-  margin: 0 0 12px;
-  opacity: 0.9;
+  margin: 0 0 8px;
 }
 
 .project-list,
@@ -387,21 +469,24 @@ html[data-theme="light"] .btn.primary {
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 350px;
+  max-height: 280px;
   overflow-y: auto;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .project-list li {
-  padding: 12px 14px; /* More padding for touch */
-  border-radius: 12px;
+  padding: 9px 10px;
+  border-radius: 10px;
   cursor: pointer;
   border: 1px solid transparent;
+  transition: background 200ms ease, border-color 200ms ease, box-shadow 220ms ease;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 4px; /* Spacing between links */
+  min-height: 40px;
 }
 
 .project-list li:hover {
@@ -409,140 +494,280 @@ html[data-theme="light"] .btn.primary {
   border-color: var(--accent-soft);
 }
 
+.project-list li:active {
+  transform: translateY(0);
+}
+
 .project-list li.selected {
   background: var(--card2);
   border-color: var(--accent);
-  font-weight: 600;
 }
 
-/* ==========================================================================
-   SUITE VIEW & TABS
-   ========================================================================== */
+.project-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-done {
+  opacity: 0.95;
+}
+
+.project-done-check {
+  color: rgba(34, 197, 94, 0.95);
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+
+.activity-list li {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border2);
+}
+
+/* Board area */
 .board-area {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .suite-tabs {
-  display: flex;
-  gap: 10px;
-  padding: 4px 0;
-  /* Horizontal Scroll for mobile */
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; 
+  display: inline-flex;
+  gap: 8px;
+  padding: 8px;
 }
-.suite-tabs::-webkit-scrollbar { display: none; }
 
 .suite-tab {
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--card2);
   color: var(--muted);
-  padding: 10px 20px; /* Large touch target */
-  font-size: 0.85rem;
+  padding: 7px 14px;
+  font-size: 0.78rem;
   cursor: pointer;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  white-space: nowrap; /* Prevent breaking */
-  flex: 0 0 auto; /* Keep tabs side by side */
+  letter-spacing: 0.12em;
+  min-height: 36px;
 }
 
 .suite-tab.active {
   color: var(--text);
   border-color: var(--accent);
-  background: var(--card);
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.12);
 }
 
-.suite-view { padding: 20px; }
+/* Suite Home */
+.suite-view {
+  padding: 16px 18px;
+}
+
+.suite-home-title {
+  font-size: 1.35rem;
+  margin-bottom: 8px;
+}
+
+.suite-home-divider {
+  height: 1px;
+  margin: 14px 0;
+  background: var(--border2);
+}
 
 .suite-home-grid {
   display: grid;
   grid-template-columns: 1.5fr 1.5fr 1fr 1fr;
-  gap: 16px;
+  gap: 12px;
 }
 
 .suite-home-card {
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid var(--border2);
   background: var(--card2);
-  padding: 16px;
+  padding: 12px 12px;
 }
 
-/* ==========================================================================
-   KANBAN BOARD (Native Feel)
-   ========================================================================== */
+.suite-home-h {
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+  color: var(--accent);
+}
+
+.faq-block {
+  margin-bottom: 10px;
+}
+
+.faq-block h4 {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}
+
+/* Social */
+.social-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.social-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--card);
+  transition: transform 140ms ease, box-shadow 180ms ease, border-color 160ms ease;
+}
+
+.social-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.social-icon:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.18);
+  border-color: var(--accent-soft);
+}
+
+.social-instagram {
+  border-color: rgba(249, 115, 22, 0.7);
+}
+.social-twitter {
+  border-color: var(--accent-soft);
+}
+.social-linkedin {
+  border-color: rgba(59, 130, 246, 0.65);
+}
+.social-facebook {
+  border-color: rgba(37, 99, 235, 0.65);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* --------------------------------------------------
+   Ops board
+   -------------------------------------------------- */
 .board-header {
-  padding: 12px 0;
+  padding: 10px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .board-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px; /* more spacing between tap targets */
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .board {
-  padding: 4px 0 16px;
+  padding: 10px;
   display: grid;
-  grid-auto-columns: minmax(280px, 1fr);
+  grid-auto-columns: minmax(240px, 1fr);
   grid-auto-flow: column;
-  gap: 16px;
   overflow-x: auto;
+  gap: 10px;
   scroll-behavior: smooth;
-  scroll-padding: 0 16px;
-  /* Snap scrolling logic */
-  scroll-snap-type: x mandatory;
+  padding-right: 16px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
-.board::-webkit-scrollbar { height: 6px; }
-.board::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 10px; }
+.board::-webkit-scrollbar {
+  height: 10px;
+}
+.board::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+}
+.board::-webkit-scrollbar-track {
+  background: transparent;
+}
 
 .column {
-  scroll-snap-align: start; /* Snap columns to start */
-  border-radius: 16px;
+  border-radius: 14px;
   border: 1px solid var(--border2);
   background: var(--card2);
-  padding: 14px;
-  min-height: 200px;
+  padding: 10px;
+  min-height: 140px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.1);
 }
 
 .column-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.column-title {
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+
+.column-count {
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .column-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   min-height: 60px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .task-card {
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--card);
-  padding: 14px;
+  padding: 10px 12px;
   cursor: pointer;
-  /* Prevent accidental text selection while dragging */
-  user-select: none; 
+  transition: transform 150ms ease, box-shadow 200ms ease, border-color 180ms ease;
+}
+
+.task-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(2, 6, 23, 0.16);
+  border-color: var(--accent-soft);
+}
+
+.task-card:active {
+  transform: translateY(0);
+}
+
+.task-card.dragging {
+  opacity: 0.6;
+  transform: scale(0.98);
 }
 
 .task-title {
-  font-weight: 700;
-  margin-bottom: 8px;
-  font-size: 0.95rem;
-  line-height: 1.4;
+  font-weight: 800;
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 
 .task-meta {
@@ -551,251 +776,813 @@ html[data-theme="light"] .btn.primary {
   align-items: center;
   justify-content: space-between;
   font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .priority-pill {
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 0.75rem;
-  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  color: var(--text);
+  background: rgba(2, 6, 23, 0.15);
+  font-weight: 600;
 }
-.priority-high { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.1); }
-.priority-medium { color: #eab308; border-color: rgba(234, 179, 8, 0.4); background: rgba(234, 179, 8, 0.1); }
-.priority-low { color: #22c55e; border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.1); }
 
-/* ==========================================================================
-   TASK DETAIL (BOTTOM SHEET PATTERN)
-   ========================================================================== */
+html[data-theme="light"] .priority-pill {
+  background: rgba(248, 250, 252, 0.75);
+}
+
+.priority-high {
+  border-color: rgba(239, 68, 68, 0.55);
+}
+.priority-medium {
+  border-color: rgba(234, 179, 8, 0.55);
+}
+.priority-low {
+  border-color: rgba(34, 197, 94, 0.55);
+}
+
+/* --------------------------------------------------
+   Global App Controls
+   -------------------------------------------------- */
+.app-panel input,
+.app-panel select,
+.app-panel textarea {
+  font: inherit;
+}
+
+.app-panel input[type="text"],
+.app-panel input[type="email"],
+.app-panel input[type="password"],
+.app-panel input[type="date"],
+.app-panel input[type="file"],
+.app-panel input[type="search"],
+.app-panel select,
+.app-panel textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card2);
+  color: var(--text);
+  outline: none;
+  min-height: 40px;
+}
+
+.app-panel textarea {
+  resize: vertical;
+  min-height: 84px;
+}
+
+.app-panel input::placeholder,
+.app-panel textarea::placeholder {
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.app-panel input:focus,
+.app-panel select:focus,
+.app-panel textarea:focus {
+  border-color: rgba(59, 130, 246, 0.8);
+  box-shadow: 0 0 0 4px var(--focus);
+}
+
+html[data-theme="light"] .app-panel input:focus,
+html[data-theme="light"] .app-panel select:focus,
+html[data-theme="light"] .app-panel textarea:focus {
+  border-color: rgba(37, 99, 235, 0.75);
+}
+
+.app-panel input[type="date"] {
+  color-scheme: dark;
+}
+html[data-theme="light"] .app-panel input[type="date"] {
+  color-scheme: light;
+}
+
+/* --------------------------------------------------
+   Task Detail Panel
+   -------------------------------------------------- */
 .task-detail {
   position: fixed;
-  z-index: 2000;
-  background: var(--card);
-  border: 1px solid var(--border);
-  box-shadow: -10px 0 50px rgba(0,0,0,0.5);
-  display: flex;
-  flex-direction: column;
-  /* Default Desktop: Slide from right */
-  top: 16px;
-  right: 16px;
-  bottom: 16px;
-  width: 420px;
-  border-radius: 20px;
-  padding: 20px;
-  overflow-y: auto;
+  right: 14px;
+  top: calc(84px + env(safe-area-inset-top));
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  width: min(440px, calc(100vw - 28px));
+  overflow: auto;
+  padding: 14px 14px 16px;
+  z-index: 20;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
-/* Close button - large touch target */
+.task-detail::before {
+  inset: 10px;
+}
+
+.task-detail h3 {
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+}
+
+.task-detail h4 {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  opacity: 0.95;
+}
+
 .task-detail .close-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--card2);
+  position: sticky;
+  top: 0;
+  float: right;
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  line-height: 1;
+  z-index: 2;
+}
+
+#detail-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+#detail-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.88rem;
+}
+
+/* Comments + attachments */
+.comments-list,
+.attachments-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 10px;
+}
+
+.comments-list li,
+.attachment-item {
   border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  z-index: 10;
-  cursor: pointer;
-}
-
-#detail-form label { font-size: 0.9rem; margin-top: 12px; }
-#detail-form input, #detail-form textarea, #detail-form select {
-  font-size: 16px; /* No zoom */
-  padding: 12px;
-  margin-top: 6px;
-}
-
-/* Attachments/Comments */
-.comments-list li, .attachment-item {
-  padding: 14px;
-  margin-bottom: 8px;
   background: var(--card2);
-  border-radius: 12px;
+  border-radius: 14px;
+  padding: 10px 12px;
 }
 
-.comment-form, .attachment-form {
+.attachment-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.attachment-item a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 700;
+}
+.attachment-item a:hover {
+  text-decoration: underline;
+}
+
+.attachment-meta {
+  grid-column: 1 / -1;
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+.attachment-delete-btn {
+  border-radius: 999px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 120ms ease;
+  min-height: 40px;
+}
+
+.attachment-delete-btn:hover {
+  border-color: rgba(239, 68, 68, 0.7);
+  transform: translateY(-1px);
+}
+
+.comment-form,
+.attachment-form {
   display: flex;
-  gap: 8px;
-  margin-top: 16px;
-  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
 }
 
 .comment-form textarea {
   flex: 1;
-  min-height: 50px;
+  min-height: 52px;
 }
 
-/* ==========================================================================
-   FLEET & RADAR
-   ========================================================================== */
+.attachment-input {
+  flex: 1;
+}
+
+/* --------------------------------------------------
+   BI
+   -------------------------------------------------- */
+.bi-view {
+  padding: 16px 18px;
+}
+
+.bi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.bi-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Chart wrapper used in your HTML */
+.chart-wrap {
+  height: 240px;
+  margin-bottom: 16px;
+}
+
+/* --------------------------------------------------
+   Fleet
+   -------------------------------------------------- */
+.fleet-view {
+  padding: 16px 18px;
+}
+
 .fleet-layout {
   display: grid;
   grid-template-columns: 1.05fr 1.35fr;
-  gap: 16px;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.fleet-roster,
+.fleet-insights {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card2);
+  padding: 14px;
+}
+
+.fleet-section-title {
+  font-size: 0.95rem;
+}
+
+.fleet-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.fleet-metric-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.25);
+  padding: 12px;
+}
+
+html[data-theme="light"] .fleet-metric-card {
+  background: rgba(248, 250, 252, 0.75);
+}
+
+.fleet-metric-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 6px 0 0;
+}
+
+.fleet-list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: grid;
+  gap: 10px;
+}
+
+.fleet-list li {
+  border: 1px solid var(--border);
+  background: rgba(2, 6, 23, 0.25);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+html[data-theme="light"] .fleet-list li {
+  background: rgba(248, 250, 252, 0.75);
+}
+
+.fleet-name {
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.fleet-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.fleet-bottom-panel {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border2);
+}
+
+.fleet-bottom-panel h4 {
+  margin: 0 0 8px;
+}
+
+/* --------------------------------------------------
+   Radar (enhanced design)
+   -------------------------------------------------- */
+.radar-view {
+  padding: 18px 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.radar-view::after {
+  content: "";
+  position: absolute;
+  inset: -40px;
+  background: radial-gradient(circle at 12% 18%, var(--accent-soft), transparent 58%),
+    radial-gradient(circle at 88% 12%, rgba(148, 163, 184, 0.1), transparent 60%);
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.radar-header {
+  position: relative;
+  z-index: 1;
+}
+
+.radar-header h2 {
+  font-size: 1.35rem;
+  margin-bottom: 8px;
+}
+
+.radar-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
   margin-top: 16px;
 }
 
-.fleet-metrics-grid, .radar-grid {
+.radar-card {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card2);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 14px 30px rgba(2, 6, 23, 0.14);
+}
+
+.radar-card::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  pointer-events: none;
+}
+
+.radar-card h3 {
+  font-size: 0.98rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+.radar-card .status-text {
+  margin-top: 0;
+}
+
+.radar-list {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
 
 .radar-list li {
-  padding: 16px; /* Comfortable spacing */
-  border-radius: 12px;
-  margin-bottom: 10px;
+  position: relative;
+  border-radius: 16px;
   border: 1px solid var(--border);
-  background: rgba(2, 6, 23, 0.3);
+  background: rgba(2, 6, 23, 0.22);
+  padding: 14px 14px 14px 18px;
+  line-height: 1.35;
+}
+
+html[data-theme="light"] .radar-list li {
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.radar-list li::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: 0.7;
+}
+
+.radar-list li::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 12px;
+  bottom: 0;
+  height: 1px;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.radar-clickable {
+  cursor: pointer;
+}
+
+.radar-clickable:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-soft);
+  box-shadow: 0 12px 26px rgba(2, 6, 23, 0.16);
+  text-decoration: none;
 }
 
 /* ==========================================================================
-   ✅ MOBILE OPTIMIZATION & MEDIA QUERIES
+   MOBILE & RESPONSIVE REFINEMENTS (✅ IMPROVED)
    ========================================================================== */
 
-/* Tablet & Smaller Laptops */
+/* --------------------------------------------------
+   Tablet / Small Laptop (1024px and down)
+   -------------------------------------------------- */
 @media (max-width: 1024px) {
-  .app-panel {
-    grid-template-columns: 1fr; /* Stack sidebar on top */
+  .main-layout {
+    padding: 12px;
+    padding-left: calc(12px + env(safe-area-inset-left));
+    padding-right: calc(12px + env(safe-area-inset-right));
   }
 
-  /* Transform Sidebar into horizontal scrolling nav for Tablet */
+  /* Layout shifts to stacked sidebar */
+  .app-panel {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  /* Sidebar acts as a header summary on tablet/mobile */
   .sidebar {
     flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: 12px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
     border-bottom: 1px solid var(--border);
-  }
-  
-  .sidebar-section {
-    min-width: 260px; /* Cards in scroll */
+    margin-bottom: 12px;
+    max-height: 260px; /* Limit height so it doesn't push content off screen */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .suite-home-grid, .radar-grid, .fleet-metrics-grid {
+  .sidebar-section {
+    flex: 1;
+    min-width: 280px;
+  }
+
+  /* 2-Column Grids (Better than jumping straight to 1) */
+  .suite-home-grid,
+  .fleet-metrics-grid,
+  .radar-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-}
 
-/* Mobile Devices (Landscape & Portrait) */
-@media (max-width: 768px) {
-  /* 1. Header Simplification */
-  .topbar {
-    padding: 10px 14px;
-  }
-  .logo-orb { width: 150px; height: 44px; }
-  .brand-text { display: none; } /* Simplify logo area */
-
-  /* 2. Full Width Layouts */
-  .main-layout { padding: 10px; }
-  .suite-view, .fleet-view, .radar-view, .bi-view { padding: 14px 10px; }
-  
-  .suite-home-grid, .radar-grid, .fleet-metrics-grid {
-    grid-template-columns: 1fr; /* Single column flow */
+  .fleet-layout {
+    grid-template-columns: 1fr;
   }
 
-  .fleet-layout { grid-template-columns: 1fr; }
-
-  /* 3. Thumb-Friendly Sidebar (Horizontal Chips) */
-  .sidebar {
-    gap: 10px;
-    padding: 0 0 10px 0;
-  }
-  .sidebar-section {
-    min-width: 100%; /* Sections stack, but lists inside might scroll? */
-    /* Better approach: collapse sidebar or make it horizontal chips */
-  }
-  
-  .project-list {
-    display: flex; /* Horizontal flow */
-    gap: 12px;
-    overflow-x: auto;
-    padding-bottom: 8px;
-    max-height: none;
-  }
-  
-  .project-list li {
-    min-width: 200px; /* Cards */
-    background: var(--card2);
-    border: 1px solid var(--border);
+  .board-header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  /* 4. Board Snap Scrolling (App Feel) */
-  .board {
-    grid-auto-columns: 85vw; /* Show peek of next column */
-    gap: 12px;
-    padding-right: 16px;
+  .board-actions {
+    width: 100%;
   }
-  .column {
-    min-height: calc(100vh - 200px); /* Fill screen */
+}
+
+/* --------------------------------------------------
+   Mobile (768px and down)
+   -------------------------------------------------- */
+@media (max-width: 768px) {
+  /* Reduce overly-wide tracking on small screens (readability) */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    letter-spacing: 0.08em;
   }
 
-  /* 5. Bottom Sheet Task Detail (Thumb Zone) */
+  /* 1. Header Cleanup */
+  .topbar {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: calc(12px + env(safe-area-inset-top)) calc(var(--page-pad-sm) + env(safe-area-inset-right)) 12px
+      calc(var(--page-pad-sm) + env(safe-area-inset-left));
+
+    /* Slightly reduced blur to help performance on mobile */
+    backdrop-filter: blur(10px);
+  }
+
+  .brand {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .brand-text {
+    display: none;
+  } /* Hide text, keep logo clean */
+
+  .topbar-right {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  #org-switcher {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+  }
+
+  #org-select {
+    min-height: var(--tap-size);
+    font-size: 1rem;
+  }
+
+  .user-chip {
+    flex: 1;
+    min-width: auto;
+    background: transparent;
+    border: none;
+    padding: 0;
+    align-items: flex-start;
+    font-size: 0.95rem;
+  }
+
+  /* Hide email on mobile to save space */
+  .user-chip span:last-child {
+    display: none;
+  }
+
+  /* 2. Grid to Single Column */
+  .suite-home-grid,
+  .fleet-metrics-grid,
+  .radar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-view,
+  .bi-view,
+  .suite-view,
+  .radar-view {
+    padding: 14px 14px;
+  }
+
+  /* 3. Board "Snap Scroll" (Native App Feel) */
+  .board {
+    grid-auto-columns: 85vw; /* show a hint of the next column */
+    gap: 16px;
+    padding: 12px 16px;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 0 16px;
+  }
+
+  .column {
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    height: auto;
+    max-height: 75vh;
+  }
+
+  .column-body {
+    overflow-y: auto;
+    max-height: 60vh;
+  }
+
+  /* 4. Touch Targets & Spacing (44x44 + “space between links”) */
+  .btn {
+    min-height: var(--tap-size);
+    padding: 10px 16px;
+    font-size: 1rem;
+  }
+
+  .tab {
+    min-height: var(--tap-size);
+    font-size: 1rem;
+  }
+
+  .suite-tab {
+    min-height: var(--tap-size);
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+
+  .project-list li {
+    min-height: var(--tap-size);
+    padding: 12px 12px;
+  }
+
+  .activity-list li {
+    padding: 12px 12px;
+  }
+
+  .social-icon {
+    width: var(--tap-size);
+    height: var(--tap-size);
+  }
+
+  .attachment-delete-btn {
+    min-height: var(--tap-size);
+  }
+
+  /* Larger, readable helper text */
+  .muted {
+    font-size: 0.95rem;
+  }
+
+  /* Prevent iOS zoom on focus */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+    min-height: var(--tap-size);
+  }
+
+  /* 5. Modern Bottom Sheet Modal */
   .task-detail {
     top: auto;
     bottom: 0;
     left: 0;
     right: 0;
     width: 100%;
-    height: 85vh; /* Take up 85% of screen height */
+    height: 85vh;
     border-radius: 24px 24px 0 0;
-    transform: translateY(100%); /* Hidden state handled by JS ideally, but for CSS layout: */
-    animation: slideUp 0.3s forwards ease-out;
+    border-bottom: none;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3);
+    border-top: 1px solid var(--accent-soft);
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+    background: var(--card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
-  
-  /* Drag Handle for Bottom Sheet */
+
+  /* Close button styling for bottom sheet */
+  .task-detail .close-btn {
+    top: 12px;
+    right: 12px;
+    background: var(--card2);
+    width: 44px;
+    height: 44px;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Add a "Handle" visual for the bottom sheet */
   .task-detail::after {
     content: "";
     position: absolute;
-    top: 10px;
+    top: 8px;
     left: 50%;
     transform: translateX(-50%);
-    width: 40px;
-    height: 5px;
+    width: 44px;
+    height: 4px;
     background: var(--border2);
     border-radius: 10px;
   }
-  
-  /* 6. Form Adjustments */
-  .comment-form, .attachment-form {
-    flex-direction: column;
-  }
-  .btn.small {
-    min-height: 44px; /* Force touch size on mobile even for small buttons */
-    width: 100%;
-  }
 }
 
-/* Small Phones */
+/* --------------------------------------------------
+   Small Mobile (480px and down)
+   -------------------------------------------------- */
 @media (max-width: 480px) {
-  .topbar-right { gap: 8px; }
-  .user-chip { padding: 6px; }
-  .user-chip span:last-child { display: none; } /* Hide email */
-  
-  .board-header {
-    flex-direction: column;
-    align-items: stretch;
+  /* Make charts smaller to fit */
+  .chart-wrap {
+    height: 180px;
   }
-  
+
+  /* Buttons go full width for easier thumbs */
   .board-actions .btn {
-    flex: 1; /* Full width buttons */
+    flex: 1;
+  }
+
+  /* Suite Tabs scroll horizontally smoothly */
+  .suite-tabs {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .suite-tab {
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .radar-view {
+    padding: 14px 12px;
+  }
+
+  .radar-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .auth-panel {
+    padding: 10px;
   }
 }
 
-/* Animation for Bottom Sheet */
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+/* --------------------------------------------------
+   Touch devices: prevent “sticky hover” + reduce hover-only affordances
+   -------------------------------------------------- */
+@media (hover: none) and (pointer: coarse) {
+  .btn:hover,
+  .task-card:hover,
+  .social-icon:hover,
+  .logo-orb:hover,
+  .radar-clickable:hover,
+  .project-list li:hover {
+    transform: none;
+    box-shadow: none;
+  }
 }
 
-/* Reduced Motion Preference */
+/* --------------------------------------------------
+   Reduced motion
+   -------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
+  html,
+  body,
+  .card,
+  .btn,
+  .sidebar,
+  .topbar,
+  .task-card,
+  .column,
+  .logo-orb,
+  .task-detail {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* --------------------------------------------------
+   Higher contrast preference (accessibility)
+   -------------------------------------------------- */
+@media (prefers-contrast: more) {
+  html[data-theme="dark"] {
+    --border: rgba(148, 163, 184, 0.55);
+    --border2: rgba(148, 163, 184, 0.35);
+  }
+
+  html[data-theme="light"] {
+    --border: rgba(30, 41, 59, 0.32);
+    --border2: rgba(30, 41, 59, 0.24);
+  }
+
+  .link {
+    text-decoration: underline;
+  }
+}
+
+/* Animation for the Bottom Sheet */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
