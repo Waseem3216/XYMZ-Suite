@@ -1310,9 +1310,6 @@ html[data-theme="light"] .radar-list li {
   #btn-theme,
   #btn-logout,
   #btn-topbar-min {
-    min-height: var(--tap);
-    font-size: 0.95rem;
-    padding: 10px 14px;
     display: none !important;
   }
   
